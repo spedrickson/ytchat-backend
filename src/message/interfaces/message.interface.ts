@@ -1,0 +1,21 @@
+import { Document } from 'mongoose';
+
+export interface Author extends Document {
+  readonly isVerified: boolean;
+  readonly isChatOwner: boolean;
+  readonly isChatSponsor: boolean;
+  readonly isChatModerator: boolean;
+  readonly channelId: string;
+  readonly name: string;
+  readonly badgeUrl: string;
+}
+
+export interface Message extends Document {
+  readonly type: string;
+  readonly datetime: string;
+  readonly message: string;
+  readonly messageEx: Array<any>;
+  readonly author: Author;
+  readonly amountValue: number;
+  readonly amountString: string;
+}
