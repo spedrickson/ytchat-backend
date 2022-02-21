@@ -8,6 +8,7 @@ export const AuthorSchema = new mongoose.Schema({
   channelId: String,
   name: String,
   badgeUrl: String,
+  messageCount: Number,
 });
 
 export const MessageSchema = new mongoose.Schema({

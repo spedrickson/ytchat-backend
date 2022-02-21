@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { Message } from './interfaces/message.interface';
 
@@ -8,25 +8,6 @@ export class MessageService {
   constructor(
     @InjectModel('Message') private readonly messageModel: Model<Message>,
   ) {}
-
-  async getChannelMessages(
-    channelId: string,
-    from: string,
-    limit: number,
-  ): Promise<Message[]> {
-    if (from) {
-      return this.getOlderMessages(from, channelId, limit);
-    }
-
-    // console.log(`getting messagses for: ${channelId}`);
-    const filters = { 'author.channelId': channelId };
-    console.log(filters);
-    return await this.messageModel
-      .find({ 'author.channelId': channelId })
-      .sort({ _id: -1 })
-      .limit(limit)
-      .exec();
-  }
 
   async getNewerMessages(
     messageId: string,
@@ -40,19 +21,52 @@ export class MessageService {
     return await this.messageModel.find(filters).limit(limit).exec();
   }
 
+  async getMessageCount(channelId: string) {
+    return await this.messageModel
+      .countDocuments({ 'author.channelId': channelId })
+      .exec();
+  }
+
   async getOlderMessages(
     messageId: string,
     channelId: string,
     limit: number,
   ): Promise<Message[]> {
-    const filters = {
-      _id: { $lt: messageId },
-    };
+    const filters = {};
+    if (messageId) filters['_id'] = { $lt: messageId };
     if (channelId) filters['author.channelId'] = channelId;
+    // console.log(filters);
     return await this.messageModel
       .find(filters)
       .limit(limit)
       .sort({ _id: -1 })
+      .exec();
+  }
+
+  async getAuthor(channelId: string): Promise<Message[]> {
+    return await this.messageModel
+      .find({ 'author.channelId': channelId })
+      .limit(1)
+      .sort({ _id: -1 })
+      .exec();
+  }
+
+  // takes a while
+  async getAllAuthors() {
+    return await this.messageModel
+      .aggregate([
+        {
+          $group: {
+            _id: '$author.channelId',
+            doc: {
+              $first: '$$ROOT.author',
+            },
+          },
+        },
+        {
+          $replaceRoot: { newRoot: '$doc' },
+        },
+      ])
       .exec();
   }
 }
