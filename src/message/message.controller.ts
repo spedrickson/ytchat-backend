@@ -6,20 +6,40 @@ import {
   Param,
   Query,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import { MessageService } from './message.service';
 import fuzzysort = require('fuzzysort');
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { KeyGuard } from './api-key.guard';
 
+@UseGuards(KeyGuard)
 @Controller('api')
 export class MessageController {
   private cachedAuthors;
-  constructor(private messageService: MessageService) {}
+  private static FUZZY_OPTIONS = {
+    key: 'name',
+    limit: 30,
+    allowTypo: false,
+    threshold: -3000,
+  };
+
+  constructor(private messageService: MessageService) {
+    this.updateAuthorCache().then();
+  }
+
+  // keep the author cache fresh
+  @Cron(CronExpression.EVERY_MINUTE)
+  async updateAuthorCache() {
+    try {
+      this.cachedAuthors = await this.messageService.getAllAuthors();
+    } catch (e) {
+      console.log(`error while trying to update author cache: ${e.message}`);
+    }
+  }
 
   @Get('channel/:channelID')
   async getAuthorInfo(@Res() res, @Param('channelID') channelID) {
-    // const info = await this.messageService.getAuthor(channelID);
-
     const [info, count] = await Promise.all([
       this.messageService.getAuthor(channelID),
       this.messageService.getMessageCount(channelID),
@@ -30,22 +50,14 @@ export class MessageController {
     return res.status(HttpStatus.OK).json(result);
   }
 
-  // keep the author cache fresh
-  @Cron(CronExpression.EVERY_MINUTE)
-  async updateAuthorCache() {
-    console.log('updating author cache');
-    this.cachedAuthors = await this.messageService.getAllAuthors();
-  }
-
   @Get('/search/channels/:searchTerm')
   async getAuthorBySearch(@Res() res, @Param('searchTerm') searchTerm) {
     if (!this.cachedAuthors) await this.updateAuthorCache();
-    const results = fuzzysort.go(searchTerm, this.cachedAuthors, {
-      key: 'name',
-      limit: 30,
-      allowTypo: false,
-      threshold: -3000,
-    });
+    const results = fuzzysort.go(
+      searchTerm,
+      this.cachedAuthors,
+      MessageController.FUZZY_OPTIONS,
+    );
 
     return res.status(HttpStatus.OK).json(results);
     // return res.status(HttpStatus.OK).json(this.cachedAuthors[0]);

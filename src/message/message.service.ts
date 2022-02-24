@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
-import { Message } from './interfaces/message.interface';
+import { Message, User } from './interfaces/message.interface';
 
 @Injectable()
 export class MessageService {
@@ -47,7 +47,7 @@ export class MessageService {
     return await this.messageModel
       .find({ 'author.channelId': channelId })
       .limit(1)
-      .sort({ _id: -1 })
+      .sort({ _id: 1 })
       .exec();
   }
 

@@ -19,3 +19,12 @@ export interface Message extends Document {
   readonly amountValue: number;
   readonly amountString: string;
 }
+
+export interface User extends Document {
+  readonly apikey: string;
+  readonly channelId: string;
+  readonly name: string;
+  readonly canView: boolean;
+  readonly canBan: boolean;
+  readonly canSubmit: boolean;
+}

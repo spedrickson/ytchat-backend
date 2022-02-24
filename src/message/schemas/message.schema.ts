@@ -11,12 +11,15 @@ export const AuthorSchema = new mongoose.Schema({
   messageCount: Number,
 });
 
-export const MessageSchema = new mongoose.Schema({
-  type: String,
-  datetime: String,
-  message: String,
-  messageEx: Array,
-  author: AuthorSchema,
-  amountValue: Number,
-  amountString: String,
-});
+export const MessageSchema = new mongoose.Schema(
+  {
+    type: String,
+    datetime: String,
+    message: String,
+    messageEx: Array,
+    author: AuthorSchema,
+    amountValue: Number,
+    amountString: String,
+  },
+  { collection: 'messages' },
+);
