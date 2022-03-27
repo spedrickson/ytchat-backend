@@ -9,10 +9,12 @@ export const AuthorSchema = new mongoose.Schema({
   name: String,
   badgeUrl: String,
   messageCount: Number,
+  modcommentCount: Number,
 });
 
 export const MessageSchema = new mongoose.Schema(
   {
+    timestamp: Number,
     type: String,
     datetime: String,
     message: String,

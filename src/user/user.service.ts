@@ -7,8 +7,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class UserService {
-  public cachedUsers;
-  public cachedKeys = new Set();
+  public cachedUsers = {};
 
   constructor(@InjectModel('User') private readonly userModel: Model<User>) {
     this.updateUserCache().then();
@@ -21,9 +20,11 @@ export class UserService {
   @Cron(CronExpression.EVERY_MINUTE)
   async updateUserCache() {
     try {
-      this.cachedUsers = await this.getAllUsers();
-      this.cachedKeys.clear();
-      this.cachedUsers.forEach((item) => this.cachedKeys.add(item.apikey));
+      const users = await this.getAllUsers();
+      for (const member in this.cachedUsers) delete this.cachedUsers[member];
+      users.forEach((item) => {
+        this.cachedUsers[item.apikey] = item;
+      });
     } catch (e) {
       console.log(`error while updating user cache: ${e.message}`);
     }

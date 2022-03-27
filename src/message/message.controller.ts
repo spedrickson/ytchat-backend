@@ -1,68 +1,89 @@
 import {
+  Body,
   Controller,
   Get,
   HttpStatus,
   NotFoundException,
   Param,
+  Post,
   Query,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
 import { MessageService } from './message.service';
 import fuzzysort = require('fuzzysort');
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Permission } from './api-key.decorator';
 import { KeyGuard } from './api-key.guard';
+import { ModCommentDto } from './comment.dto';
+import { ModCommentService } from '../modcomment/modcomment.service';
+import * as util from 'util';
 
 @UseGuards(KeyGuard)
 @Controller('api')
 export class MessageController {
-  private cachedAuthors;
   private static FUZZY_OPTIONS = {
     key: 'name',
-    limit: 30,
+    limit: 200,
     allowTypo: false,
-    threshold: -3000,
+    threshold: -500,
   };
 
-  constructor(private messageService: MessageService) {
-    this.updateAuthorCache().then();
+  constructor(
+    private messageService: MessageService,
+    private modcommentService: ModCommentService,
+  ) {
+    util.inspect.defaultOptions.depth = null;
   }
 
-  // keep the author cache fresh
-  @Cron(CronExpression.EVERY_MINUTE)
-  async updateAuthorCache() {
-    try {
-      this.cachedAuthors = await this.messageService.getAllAuthors();
-    } catch (e) {
-      console.log(`error while trying to update author cache: ${e.message}`);
-    }
+  @Permission('view')
+  @Get('auth/view')
+  getViewPermission(@Res() res) {
+    return res.status(HttpStatus.OK).json('ok');
   }
 
+  @Permission('view')
+  @Post('messages')
+  async getFilteredMessages(@Res() res, @Body() body) {
+    console.log(body);
+    // console.log(body);
+    const messages = await this.messageService.getFilteredMessages(
+      body['filters'],
+      body['sort'],
+    );
+    return res.status(HttpStatus.OK).json(messages);
+  }
+
+  @Permission('view')
   @Get('channel/:channelID')
   async getAuthorInfo(@Res() res, @Param('channelID') channelID) {
-    const [info, count] = await Promise.all([
+    const [info, messageCount, modcommentCount] = await Promise.all([
       this.messageService.getAuthor(channelID),
       this.messageService.getMessageCount(channelID),
+      this.modcommentService.getModCommentCount(channelID),
     ]);
-    const result = info[0].author;
-    result['messageCount'] = count;
     if (!info) throw new NotFoundException('author has never spoken in chat');
+    const result = info[0]?.author;
+    if (!result) throw new NotFoundException('author has never spoken in chat');
+    result['messageCount'] = messageCount ?? 0;
+    result['modcommentCount'] = modcommentCount ?? 0;
     return res.status(HttpStatus.OK).json(result);
   }
 
+  @Permission('view')
   @Get('/search/channels/:searchTerm')
   async getAuthorBySearch(@Res() res, @Param('searchTerm') searchTerm) {
-    if (!this.cachedAuthors) await this.updateAuthorCache();
+    // if (!this.cachedAuthors) await this.updateAuthorCache();
     const results = fuzzysort.go(
       searchTerm,
-      this.cachedAuthors,
+      Array.from(this.messageService.authorCache.values()),
       MessageController.FUZZY_OPTIONS,
     );
 
     return res.status(HttpStatus.OK).json(results);
-    // return res.status(HttpStatus.OK).json(this.cachedAuthors[0]);
   }
 
+  @Permission('view')
   @Get('channels')
   async getAllAuthors(@Res() res) {
     const users = await this.messageService.getAllAuthors();
@@ -70,6 +91,7 @@ export class MessageController {
     return res.status(HttpStatus.OK).json(users);
   }
 
+  @Permission('view')
   @Get('messages/newer')
   async getNewerMessages(
     @Res() res,
@@ -89,6 +111,7 @@ export class MessageController {
     return res.status(HttpStatus.OK).json(messages);
   }
 
+  @Permission('view')
   @Get('messages/older')
   async getOlderMessages(
     @Res() res,
@@ -106,5 +129,31 @@ export class MessageController {
     );
     if (!messages) throw new NotFoundException('no messages newer than id');
     return res.status(HttpStatus.OK).json(messages);
+  }
+
+  @Permission('comment')
+  @Post('channel/:channelID/comments')
+  async addModComment(
+    @Res() res,
+    @Req() req,
+    @Body() comment: ModCommentDto,
+    @Param('channelID') channelID,
+  ) {
+    const mod = req.authenticatedUser;
+    await this.modcommentService.insertModComment(
+      channelID,
+      mod.channelId,
+      comment.text,
+      mod.name,
+    );
+    return res.status(HttpStatus.OK).json('success');
+  }
+
+  @Permission('view')
+  @Get('channel/:channelID/comments')
+  async getModComments(@Res() res, @Param('channelID') channelID) {
+    const comments = await this.modcommentService.getModComments(channelID);
+    if (!comments) throw new NotFoundException('no mod comments for user');
+    return res.status(HttpStatus.OK).json(comments);
   }
 }

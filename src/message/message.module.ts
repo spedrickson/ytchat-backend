@@ -6,6 +6,7 @@ import { MessageSchema } from './schemas/message.schema';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule } from '@nestjs/config';
 import { UserModule } from '../user/user.module';
+import { ModCommentModule } from '../modcomment/modcomment.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { UserModule } from '../user/user.module';
     ScheduleModule.forRoot(),
     ConfigModule.forRoot(),
     UserModule,
+    ModCommentModule,
   ],
   providers: [MessageService],
   controllers: [MessageController],
