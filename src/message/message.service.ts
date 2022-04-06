@@ -80,23 +80,23 @@ export class MessageService implements OnModuleInit {
   async refreshAuthorCache() {
     if (this.lastCacheUpdate) {
       try {
-        const startTime = performance.now();
+        // const startTime = performance.now();
         mongoose.set('debug', false);
-        const oldSize = this.authorCache.size;
+        // const oldSize = this.authorCache.size;
         const unixEpochMs = Date.now() - 60000; // subtract 1 minute to prevent missed authors
         const authors = await this.getRecentAuthors(this.lastCacheUpdate);
         authors.forEach((author) => {
           this.authorCache.set(author.channelId, author);
         });
         this.lastCacheUpdate = unixEpochMs;
-        const endTime = performance.now();
-        console.log(
-          `refreshing author cache (since ${
-            this.lastCacheUpdate
-          }) took ${Math.round(endTime - startTime)}ms, size: ${
-            this.authorCache.size
-          }, got: ${authors.length}, new: ${this.authorCache.size - oldSize}`,
-        );
+        // const endTime = performance.now();
+        // console.log(
+        //   `refreshing author cache (since ${
+        //     this.lastCacheUpdate
+        //   }) took ${Math.round(endTime - startTime)}ms, size: ${
+        //     this.authorCache.size
+        //   }, got: ${authors.length}, new: ${this.authorCache.size - oldSize}`,
+        // );
       } catch (e) {
         console.log(`error while pulling authors: ${e.message}`);
       }
@@ -110,7 +110,6 @@ export class MessageService implements OnModuleInit {
       const startTime = performance.now();
       mongoose.set('debug', false);
       const unixEpochMs = Date.now() - 60000;
-      //     this.cachedAuthors = await this.messageService.getAllAuthors();
       const authors = await this.getAllAuthors();
       authors.forEach((author) => {
         this.authorCache.set(author.channelId, author);

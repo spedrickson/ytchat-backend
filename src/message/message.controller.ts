@@ -17,6 +17,7 @@ import { Permission } from './api-key.decorator';
 import { KeyGuard } from './api-key.guard';
 import { ModCommentDto } from './comment.dto';
 import { ModCommentService } from '../modcomment/modcomment.service';
+import { BannedUserService } from '../bannedUsers/banneduser.service';
 import * as util from 'util';
 
 @UseGuards(KeyGuard)
@@ -32,6 +33,7 @@ export class MessageController {
   constructor(
     private messageService: MessageService,
     private modcommentService: ModCommentService,
+    private bannedUserService: BannedUserService,
   ) {
     util.inspect.defaultOptions.depth = null;
   }
@@ -67,6 +69,7 @@ export class MessageController {
     if (!result) throw new NotFoundException('author has never spoken in chat');
     result['messageCount'] = messageCount ?? 0;
     result['modcommentCount'] = modcommentCount ?? 0;
+    result['isBanned'] = this.bannedUserService.isUserBanned(channelID);
     return res.status(HttpStatus.OK).json(result);
   }
 

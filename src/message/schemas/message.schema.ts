@@ -5,6 +5,7 @@ export const AuthorSchema = new mongoose.Schema({
   isChatOwner: Boolean,
   isChatSponsor: Boolean,
   isChatModerator: Boolean,
+  isBanned: Boolean,
   channelId: String,
   name: String,
   badgeUrl: String,
