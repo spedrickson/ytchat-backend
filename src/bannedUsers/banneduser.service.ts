@@ -26,8 +26,33 @@ export class BannedUserService {
       .exec();
   }
 
+  async addUnbanRequest(
+    channelId,
+    message,
+    timestamp = Date.now(),
+  ): Promise<any> {
+    return this.bannedUserModel
+      .updateOne(
+        { externalChannelId: channelId },
+        {
+          $set: {
+            unbanRequestMessage: message,
+            unbanApproved: false,
+            unbanDenied: false,
+            unbanRequestTime: timestamp,
+          },
+        },
+      )
+      .exec();
+  }
+
   isUserBanned(channelId): boolean {
-    return this.cachedBannedUsers.hasOwnProperty(channelId);
+    // return this.cachedBannedUsers.hasOwnProperty(channelId);
+    const user = this.cachedBannedUsers[channelId];
+    return Boolean(user && !user.unbanDenied).valueOf();
+  }
+  getUserBanDetails(channelId) {
+    return this.cachedBannedUsers[channelId];
   }
 
   @Cron(CronExpression.EVERY_30_SECONDS)
@@ -50,16 +75,4 @@ export class BannedUserService {
       console.log(`error while updating banned user cache: ${e.message}`);
     }
   }
-
-  // async updateUserCache() {
-  //   try {
-  //     const users = await this.getAllUsers();
-  //     for (const member in this.cachedUsers) delete this.cachedUsers[member];
-  //     users.forEach((item) => {
-  //       this.cachedUsers[item.apikey] = item;
-  //     });
-  //   } catch (e) {
-  //     console.log(`error while updating user cache: ${e.message}`);
-  //   }
-  // }
 }

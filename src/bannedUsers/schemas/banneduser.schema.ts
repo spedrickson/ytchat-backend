@@ -9,6 +9,16 @@ export class BannedUser {
   externalChannelId: string;
   @Prop()
   displayName: string;
+  @Prop()
+  unbanRequestMessage: string;
+  @Prop()
+  unbanRequestTime: Date;
+  @Prop()
+  unbanApproved: boolean;
+  @Prop()
+  unbanDenied: boolean;
+  @Prop()
+  unbanModMessage: string;
 }
 
 export const BanneduserSchema = SchemaFactory.createForClass(BannedUser);
