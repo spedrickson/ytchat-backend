@@ -47,7 +47,7 @@ export class MessageController {
   @Permission('view')
   @Post('messages')
   async getFilteredMessages(@Res() res, @Body() body) {
-    console.log(body);
+    // console.log(body);
     // console.log(body);
     const messages = await this.messageService.getFilteredMessages(
       body['filters'],
@@ -70,6 +70,9 @@ export class MessageController {
     result['messageCount'] = messageCount ?? 0;
     result['modcommentCount'] = modcommentCount ?? 0;
     result['isBanned'] = this.bannedUserService.isUserBanned(channelID);
+    if (result['isBanned'])
+      result['banDetails'] =
+        this.bannedUserService.getUserBanDetails(channelID);
     return res.status(HttpStatus.OK).json(result);
   }
 
@@ -150,6 +153,37 @@ export class MessageController {
       mod.name,
     );
     return res.status(HttpStatus.OK).json('success');
+  }
+
+  @Permission('comment')
+  @Post('bannedusers/upload')
+  async setBannedUsers(@Res() res, @Req() req, @Body() body) {
+    console.log(Object.keys(body));
+    return res.status(HttpStatus.OK).json('success');
+  }
+
+  @Permission('comment')
+  @Post('bannedusers/comment/:channelID')
+  async addUnbanRequest(
+    @Res() res,
+    @Req() req,
+    @Body() body,
+    @Param('channelID') channelID,
+  ) {
+    console.log('adding unban request');
+    console.log(body);
+    const timestamp = body.timestamp ?? Date.now();
+    if (!body.message)
+      return res
+        .status(HttpStatus.BAD_REQUEST)
+        .json("request must specify 'message' param");
+    const result = this.bannedUserService.addUnbanRequest(
+      channelID,
+      body.message,
+      timestamp,
+    );
+    console.log(result);
+    return res.status(HttpStatus.OK).json('unban comment added');
   }
 
   @Permission('view')

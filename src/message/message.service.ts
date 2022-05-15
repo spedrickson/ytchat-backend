@@ -76,34 +76,26 @@ export class MessageService implements OnModuleInit {
       .exec();
   }
 
+  // Updates author cache with the latest authors
   @Cron(CronExpression.EVERY_30_SECONDS)
   async refreshAuthorCache() {
     if (this.lastCacheUpdate) {
       try {
-        // const startTime = performance.now();
         mongoose.set('debug', false);
-        // const oldSize = this.authorCache.size;
         const unixEpochMs = Date.now() - 60000; // subtract 1 minute to prevent missed authors
         const authors = await this.getRecentAuthors(this.lastCacheUpdate);
         authors.forEach((author) => {
           this.authorCache.set(author.channelId, author);
         });
         this.lastCacheUpdate = unixEpochMs;
-        // const endTime = performance.now();
-        // console.log(
-        //   `refreshing author cache (since ${
-        //     this.lastCacheUpdate
-        //   }) took ${Math.round(endTime - startTime)}ms, size: ${
-        //     this.authorCache.size
-        //   }, got: ${authors.length}, new: ${this.authorCache.size - oldSize}`,
-        // );
       } catch (e) {
         console.log(`error while pulling authors: ${e.message}`);
       }
     }
   }
 
-  @Cron(CronExpression.EVERY_10_MINUTES)
+  // Aggregates all authors from the database, can take a while
+  @Cron(CronExpression.EVERY_DAY_AT_4AM)
   async fillAuthorCache() {
     console.log('performing full author pull, this may take a while...');
     try {
@@ -126,6 +118,7 @@ export class MessageService implements OnModuleInit {
     }
   }
 
+  // Aggregate details of all authors after specified timestamp
   async getRecentAuthors(timestamp) {
     mongoose.set('debug', false);
     return await this.messageModel
@@ -187,6 +180,6 @@ export class MessageService implements OnModuleInit {
   }
 
   async onModuleInit(): Promise<void> {
-    new Promise(this.fillAuthorCache);
+    this.fillAuthorCache();
   }
 }
