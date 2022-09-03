@@ -1,0 +1,12 @@
+openapi: 3.0.0
+info:
+  title: YTchat api endpoints
+  description: Various endpoints for getting/setting user message history or mod comments
+  version: 1.0.0
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: query
+      name: key
