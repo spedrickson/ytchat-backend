@@ -3,8 +3,8 @@ import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { Message } from './interfaces/message.interface';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import * as util from 'util';
-import * as mongoose from 'mongoose';
+// import * as util from 'util';
+// import * as mongoose from 'mongoose';
 
 @Injectable()
 export class MessageService implements OnModuleInit {
@@ -14,21 +14,18 @@ export class MessageService implements OnModuleInit {
   constructor(
     @InjectModel('Message') private readonly messageModel: Model<Message>,
   ) {
-    util.inspect.defaultOptions.depth = null;
-    mongoose.set('debug', true);
+    // util.inspect.defaultOptions.depth = null;
+    // mongoose.set('debug', true);
     this.authorCache = new Map();
   }
 
   async getFilteredMessages(userFilters, sort: object): Promise<Message[]> {
-    // console.log(userFilters);
-    mongoose.set('debug', true);
-    const results = await this.messageModel
+    // mongoose.set('debug', true);
+    return await this.messageModel
       .find(userFilters)
       .limit(100)
       .sort(sort)
       .exec();
-    console.log(results.length);
-    return results;
   }
 
   async getNewerMessages(
@@ -39,13 +36,13 @@ export class MessageService implements OnModuleInit {
     const filters = {
       _id: { $gt: messageId },
     };
-    mongoose.set('debug', false);
+    // mongoose.set('debug', false);
     if (channelId) filters['author.channelId'] = channelId;
     return await this.messageModel.find(filters).limit(limit).exec();
   }
 
   async getMessageCount(channelId: string) {
-    mongoose.set('debug', false);
+    // mongoose.set('debug', false);
     return await this.messageModel
       .countDocuments({ 'author.channelId': channelId })
       .exec();
@@ -56,7 +53,7 @@ export class MessageService implements OnModuleInit {
     channelId: string,
     limit: number,
   ): Promise<Message[]> {
-    mongoose.set('debug', false);
+    // mongoose.set('debug', false);
     const filters = {};
     if (messageId) filters['_id'] = { $lt: messageId };
     if (channelId) filters['author.channelId'] = channelId;
@@ -68,7 +65,7 @@ export class MessageService implements OnModuleInit {
   }
 
   async getAuthor(channelId: string): Promise<Message[]> {
-    mongoose.set('debug', false);
+    // mongoose.set('debug', false);
     return await this.messageModel
       .find({ 'author.channelId': channelId })
       .limit(1)
@@ -81,7 +78,7 @@ export class MessageService implements OnModuleInit {
   async refreshAuthorCache() {
     if (this.lastCacheUpdate) {
       try {
-        mongoose.set('debug', false);
+        // mongoose.set('debug', false);
         const unixEpochMs = Date.now() - 60000; // subtract 1 minute to prevent missed authors
         const authors = await this.getRecentAuthors(this.lastCacheUpdate);
         authors.forEach((author) => {
@@ -100,7 +97,7 @@ export class MessageService implements OnModuleInit {
     console.log('performing full author pull, this may take a while...');
     try {
       const startTime = performance.now();
-      mongoose.set('debug', false);
+      // mongoose.set('debug', false);
       const unixEpochMs = Date.now() - 60000;
       const authors = await this.getAllAuthors();
       authors.forEach((author) => {
@@ -120,7 +117,7 @@ export class MessageService implements OnModuleInit {
 
   // Aggregate details of all authors after specified timestamp
   async getRecentAuthors(timestamp) {
-    mongoose.set('debug', false);
+    // mongoose.set('debug', false);
     return await this.messageModel
       .aggregate(
         [
@@ -149,9 +146,38 @@ export class MessageService implements OnModuleInit {
       .exec();
   }
 
+  async getSponsorsByHour() {
+    // mongoose.set('debug', false);
+    return this.messageModel
+      .aggregate(
+        [
+          {
+            $match: {
+              type: 'newSponsor',
+            },
+          },
+          {
+            $project: {
+              datetime: { $substr: ['$datetime', 0, 13] },
+            },
+          },
+          {
+            $group: {
+              _id: '$datetime',
+              count: {
+                $sum: 1,
+              },
+            },
+          },
+        ],
+        { allowDiskUse: true },
+      )
+      .exec();
+  }
+
   // takes a while
   async getAllAuthors() {
-    mongoose.set('debug', false);
+    // mongoose.set('debug', false);
     return await this.messageModel
       .aggregate(
         [
