@@ -90,14 +90,6 @@ export class MessageController {
   }
 
   @Permission('view')
-  @Get('channels')
-  async getAllAuthors(@Res() res) {
-    const users = await this.messageService.getAllAuthors();
-    if (!users) throw new NotFoundException('no users match search term');
-    return res.status(HttpStatus.OK).json(users);
-  }
-
-  @Permission('view')
   @Get('messages/newer')
   async getNewerMessages(
     @Res() res,
@@ -155,37 +147,12 @@ export class MessageController {
     return res.status(HttpStatus.OK).json('success');
   }
 
-  @Permission('comment')
-  @Post('bannedusers/upload')
-  async setBannedUsers(@Res() res, @Req() req, @Body() body) {
-    console.log(Object.keys(body));
-    return res.status(HttpStatus.OK).json('success');
-  }
-
-  @Permission('comment')
-  @Post('bannedusers/comment/:channelID')
-  async addUnbanRequest(
-    @Res() res,
-    @Req() req,
-    @Body() body,
-    @Param('channelID') channelID,
-  ) {
-    console.log('adding unban request');
-    console.log(body);
-    const timestamp = body.timestamp ?? Date.now();
-    if (!body.message)
-      return res
-        .status(HttpStatus.BAD_REQUEST)
-        .json("request must specify 'message' param");
-    const result = this.bannedUserService.addUnbanRequest(
-      channelID,
-      body.message,
-      timestamp,
-    );
-    console.log(result);
-    return res.status(HttpStatus.OK).json('unban comment added');
-  }
-
+  /**
+   * Gets mod comments for the specified channel ID
+   * @param res
+   * @param channelID
+   * @returns ModCommentSchema
+   */
   @Permission('view')
   @Get('channel/:channelID/comments')
   async getModComments(@Res() res, @Param('channelID') channelID) {
@@ -193,4 +160,45 @@ export class MessageController {
     if (!comments) throw new NotFoundException('no mod comments for user');
     return res.status(HttpStatus.OK).json(comments);
   }
+
+  // potential unban interfaces:
+  //
+  // @Permission('comment')
+  // @Post('bannedusers/upload')
+  // async setBannedUsers(@Res() res, @Req() req, @Body() body) {
+  //   console.log(Object.keys(body));
+  //   return res.status(HttpStatus.OK).json('success');
+  // }
+
+  // @Permission('view')
+  // @Get('sponsors/byhour')
+  // async getSponsorsByHour(@Res() res) {
+  //   const result = await this.messageService.getSponsorsByHour();
+  //   console.log(result);
+  //   return res.status(HttpStatus.OK).json(result);
+  // }
+
+  // @Permission('comment')
+  // @Post('bannedusers/comment/:channelID')
+  // async addUnbanRequest(
+  //   @Res() res,
+  //   @Req() req,
+  //   @Body() body,
+  //   @Param('channelID') channelID,
+  // ) {
+  //   console.log('adding unban request');
+  //   console.log(body);
+  //   const timestamp = body.timestamp ?? Date.now();
+  //   if (!body.message)
+  //     return res
+  //       .status(HttpStatus.BAD_REQUEST)
+  //       .json("request must specify 'message' param");
+  //   const result = this.bannedUserService.addUnbanRequest(
+  //     channelID,
+  //     body.message,
+  //     timestamp,
+  //   );
+  //   console.log(result);
+  //   return res.status(HttpStatus.OK).json('unban comment added');
+  // }
 }
