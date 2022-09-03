@@ -4,7 +4,6 @@ import { Model } from 'mongoose';
 
 import { BannedUser } from './schemas/banneduser.schema';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import * as mongoose from 'mongoose';
 
 @Injectable()
 export class BannedUserService {
@@ -17,8 +16,8 @@ export class BannedUserService {
     this.cachedBannedUsers = this.getAllBannedUsers();
   }
 
+  // mongo query to pull all banned users
   async getAllBannedUsers(): Promise<BannedUser[]> {
-    mongoose.set('debug', false);
     return await this.bannedUserModel
       .aggregate([
         { $project: { _id: 0, externalChannelId: 1, displayName: 1 } },
@@ -26,6 +25,7 @@ export class BannedUserService {
       .exec();
   }
 
+  // currently unused
   async addUnbanRequest(
     channelId,
     message,
@@ -46,31 +46,27 @@ export class BannedUserService {
       .exec();
   }
 
+  // simple boolean check if the channelId is in the list of banned users
   isUserBanned(channelId): boolean {
-    // return this.cachedBannedUsers.hasOwnProperty(channelId);
     const user = this.cachedBannedUsers[channelId];
     return Boolean(user && !user.unbanDenied).valueOf();
   }
+
+  // get all details about a user's ban (currently channelId and displayName)
   getUserBanDetails(channelId) {
     return this.cachedBannedUsers[channelId];
   }
 
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  // keep the cache of banned users updated in case more are added
+  @Cron(CronExpression.EVERY_MINUTE)
   async updateBannedUserCache() {
     try {
-      // const startTime = performance.now();
       const users = await this.getAllBannedUsers();
       for (const member in this.cachedBannedUsers)
         delete this.cachedBannedUsers[member];
       users.forEach((item) => {
         this.cachedBannedUsers[item.externalChannelId] = item;
       });
-      // const endTime = performance.now();
-      // console.log(
-      //   `filling banned user cache took ${Math.round(
-      //     endTime - startTime,
-      //   )}ms, size: ${Object.keys(this.cachedBannedUsers).length}`,
-      // );
     } catch (e) {
       console.log(`error while updating banned user cache: ${e.message}`);
     }

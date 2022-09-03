@@ -2,8 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BannedUser, BanneduserSchema } from './schemas/banneduser.schema';
 import { BannedUserService } from './banneduser.service';
-import { BannedUserController } from './banneduser.controller';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+
 import { ConfigService } from '@nestjs/config';
 
 @Global()
@@ -14,7 +13,6 @@ import { ConfigService } from '@nestjs/config';
     ]),
   ],
   exports: [BannedUserService],
-  providers: [BannedUserService, JwtAuthGuard, ConfigService],
-  controllers: [BannedUserController],
+  providers: [BannedUserService, ConfigService],
 })
 export class BannedUserModule {}
