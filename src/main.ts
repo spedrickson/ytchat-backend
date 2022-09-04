@@ -22,6 +22,11 @@ async function bootstrap() {
   // initiate swagger docs
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
-  await app.listen(3000);
+
+  // use YTCHAT_BACKEND_PORT environment variable as listening port
+  const port = process.env.YTCHAT_BACKEND_PORT
+    ? process.env.YTCHAT_BACKEND_PORT
+    : 3000;
+  await app.listen(port);
 }
 bootstrap().then();
