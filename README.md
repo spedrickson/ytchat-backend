@@ -1,8 +1,10 @@
 ## About
 
-Backend API service for YouTube chat history. Requires a configured MongoDB instance to connect to.
+Backend API service for YouTube chat history written in NestJS. Requires a configured MongoDB instance to connect to.
 
 Swagger documents will also be generated automatically when running.
+
+This was started as a practice project to learn NestJS and JS/TS in general. Some things about it may strange or incorrect, feel free to point out any issues.
 
 ## Limitations
 Currently, this supports one Youtube channel per active process, determined by the `YTCHAT_CHANNELID` environment variable. 
