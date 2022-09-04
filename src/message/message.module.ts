@@ -15,9 +15,13 @@ const channelId = process.env.YTCHAT_CHANNELID
   : 'UCrPseYLGpNygVi34QpGNqpA';
 console.log(`launching for channelID: ${channelId}`);
 
+const mongodb_string = process.env.YTCHAT_BACKEND_MONGOSTRING
+  ? process.env.YTCHAT_BACKEND_MONGOSTRING
+  : 'mongodb://user:password@127.0.0.1:27017';
+
 @Module({
   imports: [
-    MongooseModule.forRoot('mongodb://readonly:test@127.0.0.1:27017', {
+    MongooseModule.forRoot(mongodb_string, {
       useNewUrlParser: true,
       dbName: channelId,
     }),
