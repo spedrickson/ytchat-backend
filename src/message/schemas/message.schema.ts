@@ -26,3 +26,6 @@ export const MessageSchema = new mongoose.Schema(
   },
   { collection: 'messages' },
 );
+
+MessageSchema.index({ timestamp: 1 });
+MessageSchema.index({ 'author.channelId': 1 });
