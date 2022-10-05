@@ -39,6 +39,28 @@ $env:YTCHAT_CHANNELID = "..."
 | YTCHAT_CHANNELID           | Which MongoDB collection should be queried.                                                                                                                           | `UCrPseYLGpNygVi34QpGNqpA` (Ludwig)         |
 | YTCHAT_BACKEND_PORT        | Which port the backend API should listen on.                                                                                                                          | `3000`                                      |
 | YTCHAT_BACKEND_MONGOSTRING | The [MongoDB Connection String](https://www.mongodb.com/docs/manual/reference/connection-string/). The DB is selected with the above `YTCHAT_CHANNELID` env variable. | `'mongodb://user:password@127.0.0.1:27017'` |
+ 
+#### API Keys/Authentication
+The backend uses API keys with associated permissions for authentication. Each channel DB should have a collection called `users` that stores these API keys/permisisons. There's currently no built-in method for generating keys/permissions, so they will have to be inserted into the DB manually.
+
+An example user (in JSON format) is as follows:
+```json
+{
+  "name": "user's name",
+  "apikey": "any_unique_string",
+  "isAdmin": false,
+  "perms": {
+    "view": true,
+    "comment": false,
+  }
+}
+```
+
+##### Permissions:
+`isAdmin`: Should override all other permissions, and allow full access to viewing/commenting/etc.  
+`view`: Can read chat history for users/perform queries on the filtered page.  
+`comment`: Can leave mod comments for users.
+
 
 ## Running the app
 
