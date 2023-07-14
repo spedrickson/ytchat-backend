@@ -1,10 +1,10 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
+// import * as util from 'util';
+// import * as mongoose from 'mongoose';
 import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { Message } from './interfaces/message.interface';
 import { Cron, CronExpression } from '@nestjs/schedule';
-// import * as util from 'util';
-// import * as mongoose from 'mongoose';
 
 @Injectable()
 export class MessageService implements OnModuleInit {
@@ -25,6 +25,30 @@ export class MessageService implements OnModuleInit {
       .find(userFilters)
       .limit(100)
       .sort(sort)
+      .exec();
+  }
+
+  async getRandomMessage(filter, timestamp): Promise<Message[]> {
+    // mongoose.set('debug', true);
+    return await this.messageModel
+      .aggregate(
+        [
+          {
+            $match: {
+              timestamp: {
+                $gt: timestamp,
+              },
+              message: new RegExp(filter),
+            },
+          },
+          {
+            $sample: {
+              size: 1,
+            },
+          },
+        ],
+        { allowDiskUse: true },
+      )
       .exec();
   }
 
@@ -207,5 +231,71 @@ export class MessageService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     this.fillAuthorCache();
+  }
+
+  async getMessageInstanceCount(messages: [], start, end) {
+    if (messages.length === 0) {
+      return [];
+    }
+    return await this.messageModel
+      .aggregate([
+        {
+          $match: {
+            timestamp: {
+              $gt: parseInt(start),
+              $lt: parseInt(end),
+            },
+            message: new RegExp(`^${messages.join('$|^')}$`, 'i'),
+          },
+        },
+        {
+          $group: {
+            _id: '$author.channelId',
+            record: { $first: '$message' },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              $toLower: '$record',
+            },
+            count: {
+              $sum: 1,
+            },
+          },
+        },
+        {
+          $replaceRoot: {
+            newRoot: {
+              $arrayToObject: [
+                [
+                  {
+                    k: '$_id',
+                    v: {
+                      $toString: '$count',
+                    },
+                  },
+                ],
+              ],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: 0,
+            merged: {
+              $push: '$$ROOT',
+            },
+          },
+        },
+        {
+          $replaceRoot: {
+            newRoot: {
+              $mergeObjects: '$merged',
+            },
+          },
+        },
+      ])
+      .exec();
   }
 }

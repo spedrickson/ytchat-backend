@@ -47,11 +47,22 @@ export class MessageController {
   @Permission('view')
   @Post('messages')
   async getFilteredMessages(@Res() res, @Body() body) {
-    // console.log(body);
-    // console.log(body);
+    console.log(body);
     const messages = await this.messageService.getFilteredMessages(
       body['filters'],
       body['sort'],
+    );
+    return res.status(HttpStatus.OK).json(messages);
+  }
+
+  @Permission('view')
+  @Post('randommessage')
+  async getRandomMessage(@Res() res, @Body() body) {
+    console.log(body);
+    console.log(new Date().getTime() - body['timestamp']);
+    const messages = await this.messageService.getRandomMessage(
+      body['filter'],
+      body['timestamp'],
     );
     return res.status(HttpStatus.OK).json(messages);
   }
@@ -159,6 +170,37 @@ export class MessageController {
     const comments = await this.modcommentService.getModComments(channelID);
     if (!comments) throw new NotFoundException('no mod comments for user');
     return res.status(HttpStatus.OK).json(comments);
+  }
+
+  @Permission('view')
+  @Get('messagecount')
+  async getMessageCount(
+    @Res() res,
+    @Query('m') messages: [],
+    @Query('start') start: number,
+    @Query('end') end: number,
+  ) {
+    if (!Array.isArray(messages)) {
+      return res
+        .status(HttpStatus.BAD_REQUEST)
+        .json("must specify at least 2 message strings ('m=')");
+    }
+    const results = await this.messageService.getMessageInstanceCount(
+      messages,
+      start,
+      end,
+    );
+    if (!results) throw new NotFoundException('no data found for query');
+    let counts = results[0];
+    if (!counts) {
+      counts = {};
+    }
+    messages.forEach((m) => {
+      if (!counts.hasOwnProperty(m)) {
+        counts[m] = 0;
+      }
+    });
+    return res.status(HttpStatus.OK).json(counts);
   }
 
   // potential unban interfaces:
