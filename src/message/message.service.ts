@@ -20,7 +20,7 @@ export class MessageService implements OnModuleInit {
     this.authorCache = new Map();
   }
 
-  async getFilteredMessages(userFilters, sort: object): Promise<Message[]> {
+  async getFilteredMessages(userFilters, sort): Promise<Message[]> {
     // mongoose.set('debug', true);
     return await this.messageModel
       .find(userFilters)
