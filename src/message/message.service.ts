@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 // import * as util from 'util';
 // import * as mongoose from 'mongoose';
 import { Model } from 'mongoose';
@@ -10,6 +10,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 export class MessageService implements OnModuleInit {
   public authorCache: Map<string, object>;
   private lastCacheUpdate;
+  private readonly logger = new Logger(MessageService.name);
 
   constructor(
     @InjectModel('Message') private readonly messageModel: Model<Message>,
@@ -110,7 +111,7 @@ export class MessageService implements OnModuleInit {
         });
         this.lastCacheUpdate = unixEpochMs;
       } catch (e) {
-        console.log(`error while pulling authors: ${e.message}`);
+        this.logger.log(`error while pulling authors: ${e.message}`);
       }
     }
   }
@@ -118,7 +119,7 @@ export class MessageService implements OnModuleInit {
   // Aggregates all authors from the database, can take a while
   @Cron(CronExpression.EVERY_DAY_AT_4AM)
   async fillAuthorCache() {
-    console.log('performing full author pull, this may take a while...');
+    this.logger.log('performing full author pull, this may take a while...');
     try {
       const startTime = performance.now();
       // mongoose.set('debug', false);
@@ -129,13 +130,13 @@ export class MessageService implements OnModuleInit {
       });
       this.lastCacheUpdate = unixEpochMs;
       const endTime = performance.now();
-      console.log(
+      this.logger.log(
         `filling author cache took ${Math.round(
           endTime - startTime,
         )}ms, size: ${this.authorCache.size}`,
       );
     } catch (e) {
-      console.log(`error while pulling authors: ${e.message}`);
+      this.logger.log(`error while pulling authors: ${e.message}`);
     }
   }
 
@@ -251,7 +252,7 @@ export class MessageService implements OnModuleInit {
         {
           $group: {
             _id: '$author.channelId',
-            record: { $first: '$message' },
+            record: { $last: '$message' },
           },
         },
         {

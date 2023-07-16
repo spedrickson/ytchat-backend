@@ -8,8 +8,6 @@ import { UserModule } from '../user/user.module';
 import { ModCommentModule } from '../modcomment/modcomment.module';
 import { BannedUserModule } from '../bannedUsers/banneduser.module';
 
-// console.log('message module init');
-// console.log(process.env.TEST);
 const channelId = process.env.YTCHAT_CHANNELID
   ? process.env.YTCHAT_CHANNELID
   : 'UCrPseYLGpNygVi34QpGNqpA';

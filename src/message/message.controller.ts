@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpStatus,
+  Logger,
   NotFoundException,
   Param,
   Post,
@@ -23,6 +24,8 @@ import * as util from 'util';
 @UseGuards(KeyGuard)
 @Controller('api')
 export class MessageController {
+  private readonly logger = new Logger(MessageController.name);
+
   private static FUZZY_OPTIONS = {
     key: 'name',
     limit: 200,
@@ -47,7 +50,7 @@ export class MessageController {
   @Permission('view')
   @Post('messages')
   async getFilteredMessages(@Res() res, @Body() body) {
-    console.log(body);
+    this.logger.log(body);
     const messages = await this.messageService.getFilteredMessages(
       body['filters'],
       body['sort'],
@@ -58,8 +61,8 @@ export class MessageController {
   @Permission('view')
   @Post('randommessage')
   async getRandomMessage(@Res() res, @Body() body) {
-    console.log(body);
-    console.log(new Date().getTime() - body['timestamp']);
+    this.logger.log(body);
+    this.logger.log(new Date().getTime() - body['timestamp']);
     const messages = await this.messageService.getRandomMessage(
       body['filter'],
       body['timestamp'],
@@ -110,7 +113,7 @@ export class MessageController {
     @Query('user') user?: string,
     @Query('limit') limit?: number,
   ) {
-    // console.log(`getting messages newer than: ${messageID}`);
+    // this.logger.log(`getting messages newer than: ${messageID}`);
     const messages = await this.messageService.getNewerMessages(
       messageID ?? from,
       channelID ?? user,
@@ -130,7 +133,7 @@ export class MessageController {
     @Query('user') user?: string,
     @Query('limit') limit?: number,
   ) {
-    // console.log(`getting messages older than: ${messageID}`);
+    // this.logger.log(`getting messages older than: ${messageID}`);
     const messages = await this.messageService.getOlderMessages(
       messageID ?? from,
       channelID ?? user,
@@ -208,7 +211,7 @@ export class MessageController {
   // @Permission('comment')
   // @Post('bannedusers/upload')
   // async setBannedUsers(@Res() res, @Req() req, @Body() body) {
-  //   console.log(Object.keys(body));
+  //   this.logger.log(Object.keys(body));
   //   return res.status(HttpStatus.OK).json('success');
   // }
 
@@ -216,7 +219,7 @@ export class MessageController {
   // @Get('sponsors/byhour')
   // async getSponsorsByHour(@Res() res) {
   //   const result = await this.messageService.getSponsorsByHour();
-  //   console.log(result);
+  //   this.logger.log(result);
   //   return res.status(HttpStatus.OK).json(result);
   // }
 
@@ -228,8 +231,8 @@ export class MessageController {
   //   @Body() body,
   //   @Param('channelID') channelID,
   // ) {
-  //   console.log('adding unban request');
-  //   console.log(body);
+  //   this.logger.log('adding unban request');
+  //   this.logger.log(body);
   //   const timestamp = body.timestamp ?? Date.now();
   //   if (!body.message)
   //     return res
@@ -240,7 +243,7 @@ export class MessageController {
   //     body.message,
   //     timestamp,
   //   );
-  //   console.log(result);
+  //   this.logger.log(result);
   //   return res.status(HttpStatus.OK).json('unban comment added');
   // }
 }
