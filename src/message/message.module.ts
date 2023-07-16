@@ -20,7 +20,6 @@ const mongodb_string = process.env.YTCHAT_BACKEND_MONGOSTRING
 @Module({
   imports: [
     MongooseModule.forRoot(mongodb_string, {
-      useNewUrlParser: true,
       dbName: channelId,
     }),
     MongooseModule.forFeature([{ name: 'Message', schema: MessageSchema }]),
