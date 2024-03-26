@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { MessageService } from './message.service';
 import { MessageController } from './message.controller';
 import { MongooseModule } from '@nestjs/mongoose';
-import { MessageSchema } from './schemas/message.schema';
+import { AuthorSearchSchema, MessageSchema } from './schemas/message.schema';
 import { ScheduleModule } from '@nestjs/schedule';
 import { UserModule } from '../user/user.module';
 import { ModCommentModule } from '../modcomment/modcomment.module';
@@ -22,7 +22,10 @@ const mongodb_string = process.env.YTCHAT_BACKEND_MONGOSTRING
     MongooseModule.forRoot(mongodb_string, {
       dbName: channelId,
     }),
-    MongooseModule.forFeature([{ name: 'Message', schema: MessageSchema }]),
+    MongooseModule.forFeature([
+      { name: 'Message', schema: MessageSchema },
+      { name: 'AuthorSearch', schema: AuthorSearchSchema },
+    ]),
     ScheduleModule.forRoot(),
     UserModule,
     ModCommentModule,

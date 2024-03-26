@@ -30,3 +30,23 @@ export const MessageSchema = new mongoose.Schema(
 MessageSchema.index({ timestamp: 1 });
 MessageSchema.index({ 'author.channelId': 1 });
 MessageSchema.index({ id: 1 }, { unique: true });
+
+// different than message author schema, extra fields related to searching
+export const AuthorSearchSchema = new mongoose.Schema(
+  {
+    badgeUrl: String,
+    type: String,
+    isVerified: Boolean,
+    isChatOwner: Boolean,
+    isChatSponsor: Boolean,
+    isChatModerator: Boolean,
+    channelId: String,
+    channelUrl: String,
+    name: String,
+    imageUrl: String,
+    lastTimestamp: Number,
+  },
+  { collection: 'authors' },
+);
+
+AuthorSearchSchema.index({ name: 'text' });

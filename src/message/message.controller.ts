@@ -13,7 +13,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { MessageService } from './message.service';
-import fuzzysort = require('fuzzysort');
 import { Permission } from './api-key.decorator';
 import { KeyGuard } from './api-key.guard';
 import { ModCommentDto } from './comment.dto';
@@ -25,13 +24,6 @@ import * as util from 'util';
 @Controller('api')
 export class MessageController {
   private readonly logger = new Logger(MessageController.name);
-
-  private static FUZZY_OPTIONS = {
-    key: 'name',
-    limit: 200,
-    allowTypo: false,
-    threshold: -500,
-  };
 
   constructor(
     private messageService: MessageService,
@@ -92,15 +84,19 @@ export class MessageController {
 
   @Permission('view')
   @Get('/search/channels/:searchTerm')
-  async getAuthorBySearch(@Res() res, @Param('searchTerm') searchTerm) {
-    // if (!this.cachedAuthors) await this.updateAuthorCache();
-    const results = fuzzysort.go(
+  async getAuthorBySearch(
+    @Res() res,
+    @Param('searchTerm') searchTerm,
+    @Query('limit') limit?: number,
+    @Query('caseSensitive') caseSensitive?: boolean,
+  ) {
+    this.logger.log(searchTerm);
+    const authors = await this.messageService.getAuthorsBySearch(
       searchTerm,
-      Array.from(this.messageService.authorCache.values()),
-      MessageController.FUZZY_OPTIONS,
+      limit ? limit : 25,
+      caseSensitive ? caseSensitive : false,
     );
-
-    return res.status(HttpStatus.OK).json(results);
+    return res.status(HttpStatus.OK).json(authors);
   }
 
   @Permission('view')

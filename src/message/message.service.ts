@@ -1,24 +1,21 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 // import * as util from 'util';
 // import * as mongoose from 'mongoose';
-import { Model } from 'mongoose';
+import { Model, PipelineStage } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
-import { Message } from './interfaces/message.interface';
+import { Author, AuthorSearch, Message } from './interfaces/message.interface';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class MessageService implements OnModuleInit {
-  public authorCache: Map<string, object>;
-  private lastCacheUpdate;
+  private lastCacheUpdate: number = null;
   private readonly logger = new Logger(MessageService.name);
 
   constructor(
     @InjectModel('Message') private readonly messageModel: Model<Message>,
-  ) {
-    // util.inspect.defaultOptions.depth = null;
-    // mongoose.set('debug', true);
-    this.authorCache = new Map();
-  }
+    @InjectModel('AuthorSearch')
+    private readonly authorSearchModel: Model<AuthorSearch>,
+  ) {}
 
   async getFilteredMessages(userFilters, sort): Promise<Message[]> {
     // mongoose.set('debug', true);
@@ -26,6 +23,21 @@ export class MessageService implements OnModuleInit {
       .find(userFilters)
       .limit(100)
       .sort(sort)
+      .exec();
+  }
+
+  async getAuthorsBySearch(
+    filter: string,
+    limit: number,
+    caseSensitive: boolean,
+  ): Promise<Author[]> {
+    return await this.authorSearchModel
+      .find(
+        { $text: { $search: filter, $caseSensitive: caseSensitive } },
+        { score: { $meta: 'textScore' } },
+      )
+      .sort({ score: { $meta: 'textScore' }, lastTimestamp: -1 })
+      .limit(limit)
       .exec();
   }
 
@@ -99,45 +111,87 @@ export class MessageService implements OnModuleInit {
   }
 
   // Updates author cache with the latest authors
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_MINUTE)
   async refreshAuthorCache() {
-    if (this.lastCacheUpdate) {
-      try {
-        // mongoose.set('debug', false);
-        const unixEpochMs = Date.now() - 60000; // subtract 1 minute to prevent missed authors
-        const authors = await this.getRecentAuthors(this.lastCacheUpdate);
-        authors.forEach((author) => {
-          this.authorCache.set(author.channelId, author);
-        });
-        this.lastCacheUpdate = unixEpochMs;
-      } catch (e) {
-        this.logger.log(`error while pulling authors: ${e.message}`);
-      }
+    if (this.lastCacheUpdate === null) {
+      return;
     }
+    const startTime = performance.now();
+    const startTimestamp = Date.now() - 10000;
+    const aggregation: Array<PipelineStage> = [
+      {
+        $match: {
+          timestamp: { $gt: this.lastCacheUpdate },
+        },
+      },
+      {
+        $sort: {
+          timestamp: -1,
+        },
+      },
+      {
+        $group: {
+          _id: '$author.channelId',
+          author: {
+            $first: '$author',
+          },
+          timestamp: {
+            $first: '$timestamp',
+          },
+        },
+      },
+      {
+        $addFields: {
+          'author.lastTimestamp': '$timestamp',
+        },
+      },
+      {
+        $replaceRoot: {
+          newRoot: {
+            $mergeObjects: [
+              {
+                _id: '$author.channelId',
+              },
+              '$author',
+            ],
+          },
+        },
+      },
+      {
+        $merge: {
+          into: 'authors',
+          on: '_id',
+          whenMatched: 'replace',
+          whenNotMatched: 'insert',
+        },
+      },
+    ];
+    this.authorSearchModel
+      .aggregate(aggregation, { allowDiskUse: true })
+      .exec();
+    this.logger.log(
+      `refreshing author cache took ${Math.round(performance.now() - startTime)}ms (>${this.lastCacheUpdate})`,
+    );
+    this.lastCacheUpdate = startTimestamp;
   }
 
-  // Aggregates all authors from the database, can take a while
-  @Cron(CronExpression.EVERY_DAY_AT_4AM)
-  async fillAuthorCache() {
-    this.logger.log('performing full author pull, this may take a while...');
-    try {
-      const startTime = performance.now();
-      // mongoose.set('debug', false);
-      const unixEpochMs = Date.now() - 60000;
-      const authors = await this.getAllAuthors();
-      authors.forEach((author) => {
-        this.authorCache.set(author.channelId, author);
-      });
-      this.lastCacheUpdate = unixEpochMs;
-      const endTime = performance.now();
-      this.logger.log(
-        `filling author cache took ${Math.round(
-          endTime - startTime,
-        )}ms, size: ${this.authorCache.size}`,
-      );
-    } catch (e) {
-      this.logger.log(`error while pulling authors: ${e.message}`);
+  async setLastCacheUpdate() {
+    const startTime = performance.now();
+    const result = await this.authorSearchModel
+      .findOne()
+      .sort({ lastTimestamp: -1 })
+      .limit(1)
+      .select('lastTimestamp')
+      .exec();
+    if (result !== null) {
+      this.lastCacheUpdate = result['lastTimestamp'];
+    } else {
+      this.lastCacheUpdate = 0;
     }
+    const endTime = performance.now();
+    this.logger.log(
+      `fetching last cache timestamp took ${Math.round(endTime - startTime)}ms`,
+    );
   }
 
   // Aggregate details of all authors after specified timestamp
@@ -231,7 +285,8 @@ export class MessageService implements OnModuleInit {
   }
 
   async onModuleInit(): Promise<void> {
-    this.fillAuthorCache();
+    await this.setLastCacheUpdate();
+    this.refreshAuthorCache();
   }
 
   async getMessageInstanceCount(messages: [], start, end) {
