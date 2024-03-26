@@ -29,3 +29,4 @@ export const MessageSchema = new mongoose.Schema(
 
 MessageSchema.index({ timestamp: 1 });
 MessageSchema.index({ 'author.channelId': 1 });
+MessageSchema.index({ id: 1 }, { unique: true });
