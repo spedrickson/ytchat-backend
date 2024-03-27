@@ -5,7 +5,6 @@ import {
   UnauthorizedException,
   Inject,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
 import { UserService } from '../user/user.service';
 import { Reflector } from '@nestjs/core';
 
@@ -16,9 +15,7 @@ export class KeyGuard implements CanActivate {
     private reflector: Reflector,
   ) {}
 
-  canActivate(
-    context: ExecutionContext,
-  ): boolean | Promise<boolean> | Observable<boolean> {
+  canActivate(context: ExecutionContext): boolean | Promise<boolean> {
     const permissions = this.reflector.get<string[]>(
       'permission',
       context.getHandler(),
