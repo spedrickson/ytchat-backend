@@ -26,7 +26,7 @@ export class MessageService {
       .exec();
   }
 
-  async getAuthorsBySearch(
+  async getAuthorsByText(
     filter: string,
     limit: number,
     caseSensitive: boolean,
@@ -36,7 +36,32 @@ export class MessageService {
         { $text: { $search: filter, $caseSensitive: caseSensitive } },
         { score: { $meta: 'textScore' } },
       )
-      .sort({ score: { $meta: 'textScore' }, lastTimestamp: -1 })
+      .sort({
+        score: { $meta: 'textScore' },
+        lastTimestamp: -1,
+      })
+      .limit(limit)
+      .exec();
+  }
+
+  async getAuthorsByRegex(
+    filter: string,
+    limit: number,
+    caseSensitive: boolean,
+  ): Promise<Author[]> {
+    return await this.authorSearchModel
+      .find({
+        name: {
+          // by $gte/$lt filtering on a string, mongoDB will only check a range of the index
+          $gte: filter.toLowerCase(),
+          $lt: String.fromCharCode(filter.charCodeAt(0) + 1),
+          $regex: new RegExp(filter, caseSensitive ? '' : 'i'),
+        },
+      })
+      .collation({ locale: 'en', strength: 1 })
+      .sort({
+        lastTimestamp: -1,
+      })
       .limit(limit)
       .exec();
   }

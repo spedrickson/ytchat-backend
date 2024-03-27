@@ -91,7 +91,7 @@ export class MessageController {
     @Query('caseSensitive') caseSensitive?: boolean,
   ) {
     this.logger.log(searchTerm);
-    const authors = await this.messageService.getAuthorsBySearch(
+    const authors = await this.messageService.getAuthorsByRegex(
       searchTerm,
       limit ? limit : 25,
       caseSensitive ? caseSensitive : false,
