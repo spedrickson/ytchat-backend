@@ -17,6 +17,10 @@ export class MessageService implements OnModuleInit {
     private readonly authorSearchModel: Model<AuthorSearch>,
   ) {}
 
+  async onModuleInit(): Promise<void> {
+    this.refreshAuthorCache();
+  }
+
   async getFilteredMessages(userFilters, sort): Promise<Message[]> {
     // mongoose.set('debug', true);
     return await this.messageModel
@@ -111,13 +115,11 @@ export class MessageService implements OnModuleInit {
   }
 
   // Updates author cache with the latest authors
-  @Cron(CronExpression.EVERY_MINUTE)
+  // uses the last author timestamp to only scan recent messages
+  @Cron(CronExpression.EVERY_30_SECONDS)
   async refreshAuthorCache() {
-    if (this.lastCacheUpdate === null) {
-      return;
-    }
+    this.lastCacheUpdate = await this.getLastAuthorTimestamp();
     const startTime = performance.now();
-    const startTimestamp = Date.now() - 10000;
     const aggregation: Array<PipelineStage> = [
       {
         $match: {
@@ -166,16 +168,14 @@ export class MessageService implements OnModuleInit {
         },
       },
     ];
-    this.authorSearchModel
-      .aggregate(aggregation, { allowDiskUse: true })
-      .exec();
-    this.logger.log(
-      `refreshing author cache took ${Math.round(performance.now() - startTime)}ms (>${this.lastCacheUpdate})`,
+    this.messageModel.aggregate(aggregation, { allowDiskUse: true }).exec();
+    this.logger.debug(
+      `[${Math.round(performance.now() - startTime)}ms] refreshed author db > ${this.lastCacheUpdate}`,
     );
-    this.lastCacheUpdate = startTimestamp;
   }
 
-  async setLastCacheUpdate() {
+  // finds the last author timestamp, to ensure cache refreshes always pull the right data
+  async getLastAuthorTimestamp() {
     const startTime = performance.now();
     const result = await this.authorSearchModel
       .findOne()
@@ -183,15 +183,14 @@ export class MessageService implements OnModuleInit {
       .limit(1)
       .select('lastTimestamp')
       .exec();
-    if (result !== null) {
-      this.lastCacheUpdate = result['lastTimestamp'];
-    } else {
-      this.lastCacheUpdate = 0;
-    }
-    const endTime = performance.now();
-    this.logger.log(
-      `fetching last cache timestamp took ${Math.round(endTime - startTime)}ms`,
+    this.logger.debug(
+      `[${Math.round(performance.now() - startTime)}ms] fetched last author timestamp: ${result['lastTimestamp']}`,
     );
+    if (result !== null) {
+      return result['lastTimestamp'];
+    } else {
+      return 0;
+    }
   }
 
   // Aggregate details of all authors after specified timestamp
@@ -254,8 +253,10 @@ export class MessageService implements OnModuleInit {
       .exec();
   }
 
-  // takes a while
-  async getAllAuthors() {
+  // completely refills the author collection from the message db
+  // only necessary if you think the author cache is corrupted in some way
+  // very slow, as it iterates every message in the db
+  async resetAuthorCache() {
     // mongoose.set('debug', false);
     return await this.messageModel
       .aggregate(
@@ -282,11 +283,6 @@ export class MessageService implements OnModuleInit {
         { allowDiskUse: true },
       )
       .exec();
-  }
-
-  async onModuleInit(): Promise<void> {
-    await this.setLastCacheUpdate();
-    this.refreshAuthorCache();
   }
 
   async getMessageInstanceCount(messages: [], start, end) {

@@ -50,3 +50,8 @@ export const AuthorSearchSchema = new mongoose.Schema(
 );
 
 AuthorSearchSchema.index({ name: 'text' });
+AuthorSearchSchema.index(
+  { name: 1 },
+  { collation: { locale: 'en', strength: 1 } },
+);
+AuthorSearchSchema.index({ lastTimestamp: -1 });
