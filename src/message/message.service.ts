@@ -173,6 +173,24 @@ export class MessageService implements OnModuleInit {
       `[${Math.round(performance.now() - startTime)}ms] refreshed author db > ${this.lastCacheUpdate}`,
     );
   }
+  // finds the last message timestamp
+  async getLastMessageTimestamp() {
+    const startTime = performance.now();
+    const result = await this.messageModel
+      .findOne()
+      .sort({ timestamp: -1 })
+      .limit(1)
+      .select('timestamp')
+      .exec();
+    this.logger.debug(
+      `[${Math.round(performance.now() - startTime)}ms] fetched last message timestamp: ${result['timestamp']}`,
+    );
+    if (result !== null) {
+      return result['timestamp'];
+    } else {
+      return 0;
+    }
+  }
 
   // finds the last author timestamp, to ensure cache refreshes always pull the right data
   async getLastAuthorTimestamp() {
@@ -193,8 +211,39 @@ export class MessageService implements OnModuleInit {
     }
   }
 
+  // creates a partial+unique index for timestamps >= the latest message
+  // the messageID index is only used to prevent duplicate messages,
+  // so we only need to track IDs of new messages
+  @Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
+  async trimMessageIdIndex() {
+    const lastTimestamp = await this.getLastMessageTimestamp();
+    let start = performance.now();
+    this.logger.warn('starting trim');
+    await this.messageModel.collection
+      .dropIndex('id_1')
+      .catch(() => this.logger.warn('was missing id_1 index'));
+    this.logger.log(
+      `[${performance.now() - start}ms] dropped index, starting re-index...`,
+    );
+    start = performance.now();
+    const result = await this.messageModel.collection.createIndex(
+      { id: 1 },
+      {
+        unique: true,
+        partialFilterExpression: {
+          timestamp: {
+            $gte: lastTimestamp,
+          },
+        },
+      },
+    );
+    this.logger.warn(
+      `[${performance.now() - start}ms] finished trim: ${result}`,
+    );
+  }
+
   // Aggregate details of all authors after specified timestamp
-  async getRecentAuthors(timestamp) {
+  async getRecentAuthors(timestamp: number) {
     // mongoose.set('debug', false);
     return await this.messageModel
       .aggregate(
