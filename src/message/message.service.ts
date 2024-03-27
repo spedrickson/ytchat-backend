@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 // import * as util from 'util';
 // import * as mongoose from 'mongoose';
 import { Model, PipelineStage } from 'mongoose';
@@ -7,7 +7,7 @@ import { Author, AuthorSearch, Message } from './interfaces/message.interface';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
-export class MessageService implements OnModuleInit {
+export class MessageService {
   private lastCacheUpdate: number = null;
   private readonly logger = new Logger(MessageService.name);
 
@@ -16,10 +16,6 @@ export class MessageService implements OnModuleInit {
     @InjectModel('AuthorSearch')
     private readonly authorSearchModel: Model<AuthorSearch>,
   ) {}
-
-  async onModuleInit(): Promise<void> {
-    this.refreshAuthorCache();
-  }
 
   async getFilteredMessages(userFilters, sort): Promise<Message[]> {
     // mongoose.set('debug', true);
@@ -240,37 +236,6 @@ export class MessageService implements OnModuleInit {
     this.logger.warn(
       `[${performance.now() - start}ms] finished trim: ${result}`,
     );
-  }
-
-  // Aggregate details of all authors after specified timestamp
-  async getRecentAuthors(timestamp: number) {
-    // mongoose.set('debug', false);
-    return await this.messageModel
-      .aggregate(
-        [
-          { $match: { timestamp: { $gte: timestamp } } },
-          { $sort: { timestamp: -1 } },
-          {
-            $group: {
-              _id: '$author.channelId',
-              author: {
-                $first: '$$ROOT.author',
-              },
-              timestamp: { $first: '$$ROOT.timestamp' },
-            },
-          },
-          {
-            $addFields: {
-              'author.lastTimestamp': '$timestamp',
-            },
-          },
-          {
-            $replaceRoot: { newRoot: '$author' },
-          },
-        ],
-        { allowDiskUse: true },
-      )
-      .exec();
   }
 
   async getSponsorsByHour() {
