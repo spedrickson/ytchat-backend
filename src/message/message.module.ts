@@ -6,7 +6,6 @@ import { AuthorSearchSchema, MessageSchema } from './schemas/message.schema';
 import { ScheduleModule } from '@nestjs/schedule';
 import { UserModule } from '../user/user.module';
 import { ModCommentModule } from '../modcomment/modcomment.module';
-import { BannedUserModule } from '../bannedUsers/banneduser.module';
 
 const channelId = process.env.YTCHAT_CHANNELID
   ? process.env.YTCHAT_CHANNELID
@@ -29,7 +28,6 @@ const mongodb_string = process.env.YTCHAT_BACKEND_MONGOSTRING
     ScheduleModule.forRoot(),
     UserModule,
     ModCommentModule,
-    BannedUserModule,
   ],
   providers: [MessageService],
   controllers: [MessageController],
