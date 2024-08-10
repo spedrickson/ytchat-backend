@@ -164,6 +164,14 @@ export class MessageController {
     return res.status(HttpStatus.OK).json(comments);
   }
 
+  /**
+   * Counts multiple messages in given time period
+   * @param res
+   * @param messages a list of messages that will be counted for given time period
+   * @param start ms timestamp to count messages after
+   * @param end ms timestamp to count messages before
+   * @returns list of counts for each provided message in the given time period
+   */
   @Permission('view')
   @Get('messagecount')
   async getMessageCount(
@@ -175,7 +183,7 @@ export class MessageController {
     if (!Array.isArray(messages)) {
       return res
         .status(HttpStatus.BAD_REQUEST)
-        .json("must specify at least 2 message strings ('m=')");
+        .json("must specify at least 2 message strings ('&m=')");
     }
     const results = await this.messageService.getMessageInstanceCount(
       messages,
