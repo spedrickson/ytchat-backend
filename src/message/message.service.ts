@@ -137,7 +137,7 @@ export class MessageService {
     // mongoose.set('debug', false);
     this.logger.debug(channelId);
     // need to use find() instead of findById() because author collection uses YT channelId instead of an ObjectId
-    const result =  await this.authorSearchModel.findOne({_id: channelId});
+    const result = await this.authorSearchModel.findOne({ _id: channelId });
     this.logger.debug(result);
     return result;
     // return await this.messageModel
@@ -161,67 +161,70 @@ export class MessageService {
       },
       {
         $sort: {
-          timestamp: -1
-        }
+          timestamp: -1,
+        },
       },
       {
         $group: {
-          _id: "$author.channelId",
+          _id: '$author.channelId',
           author: {
-            $first: "$author"
+            $first: '$author',
           },
           lastTimestamp: {
-            $first: "$timestamp"
+            $first: '$timestamp',
           },
           firstTimestamp: {
-            $last: "$timestamp"
+            $last: '$timestamp',
           },
           messageCount: {
-            $sum: 1
-          }
-        }
+            $sum: 1,
+          },
+        },
       },
       {
         $addFields: {
-          "author.lastTimestamp": "$lastTimestamp",
-          "author.firstTimestamp": "$firstTimestamp",
-          "author.messageCount": "$messageCount"
-        }
+          'author.lastTimestamp': '$lastTimestamp',
+          'author.firstTimestamp': '$firstTimestamp',
+          'author.messageCount': '$messageCount',
+        },
       },
       {
         $replaceRoot: {
           newRoot: {
             $mergeObjects: [
               {
-                _id: "$author.channelId"
+                _id: '$author.channelId',
               },
-              "$author"
-            ]
-          }
-        }
+              '$author',
+            ],
+          },
+        },
       },
       {
         $merge: {
-          into: "authors",
-          on: "_id",
-          whenNotMatched: "insert",
+          into: 'authors',
+          on: '_id',
+          whenNotMatched: 'insert',
           whenMatched: [
             {
               $project: {
                 fixed: {
                   $mergeObjects: [
-                    "$$new",
+                    '$$new',
                     {
-                      firstTimestamp: "$firstTimestamp",
-                      messageCount: {$add: ["$messageCount", "$$new.messageCount"]}
-                    }
-                  ]
-                }
-              }
-            },{ $replaceRoot: { newRoot: "$fixed" } }
-          ]
-        }
-      }
+                      firstTimestamp: '$firstTimestamp',
+                      messageCount: {
+                        $add: ['$messageCount', '$$new.messageCount'],
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+            { $replaceRoot: { newRoot: '$fixed' } },
+          ],
+        },
+      },
     ];
     this.messageModel.aggregate(aggregation, { allowDiskUse: true }).exec();
     this.logger.debug(
