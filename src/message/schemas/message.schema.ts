@@ -34,6 +34,7 @@ MessageSchema.index({ id: 1 }, { unique: true });
 // different than message author schema, extra fields related to searching
 export const AuthorSearchSchema = new mongoose.Schema(
   {
+    _id: String,
     badgeUrl: String,
     type: String,
     isVerified: Boolean,

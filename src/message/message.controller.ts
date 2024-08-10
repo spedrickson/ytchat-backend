@@ -40,7 +40,7 @@ export class MessageController {
   @Permission('view')
   @Post('messages')
   async getFilteredMessages(@Res() res, @Body() body) {
-    this.logger.log(body);
+    // this.logger.log(body);
     const messages = await this.messageService.getFilteredMessages(
       body['filters'],
       body['sort'],
@@ -51,7 +51,7 @@ export class MessageController {
   @Permission('view')
   @Post('randommessage')
   async getRandomMessage(@Res() res, @Body() body) {
-    this.logger.log(body);
+    // this.logger.log(body);
     this.logger.log(new Date().getTime() - body['timestamp']);
     const messages = await this.messageService.getRandomMessage(
       body['filter'],
@@ -63,17 +63,15 @@ export class MessageController {
   @Permission('view')
   @Get('channel/:channelID')
   async getAuthorInfo(@Res() res, @Param('channelID') channelID) {
-    const [info, messageCount, modcommentCount] = await Promise.all([
+    let [info, modcommentCount] = await Promise.all([
       this.messageService.getAuthor(channelID),
-      this.messageService.getMessageCount(channelID),
       this.modcommentService.getModCommentCount(channelID),
     ]);
     if (!info) throw new NotFoundException('author has never spoken in chat');
-    const result = info[0]?.author;
-    if (!result) throw new NotFoundException('author has never spoken in chat');
-    result['messageCount'] = messageCount ?? 0;
-    result['modcommentCount'] = modcommentCount ?? 0;
-    return res.status(HttpStatus.OK).json(result);
+    // this.logger.log(info)
+    info['modcommentCount'] = modcommentCount ?? 0;
+    // this.logger.log(info)
+    return res.status(HttpStatus.OK).json(info);
   }
 
   @Permission('view')
@@ -84,7 +82,7 @@ export class MessageController {
     @Query('limit') limit?: number,
     @Query('caseSensitive') caseSensitive?: boolean,
   ) {
-    this.logger.log(searchTerm);
+    // this.logger.log(searchTerm);
     const authors = await this.messageService.getAuthorsByRegex(
       searchTerm,
       limit ? limit : 25,

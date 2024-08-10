@@ -41,4 +41,5 @@ export interface AuthorSearch extends Document {
   readonly name: string;
   readonly imageUrl: string;
   readonly lastTimestamp: number;
+  readonly messageCount: number;
 }

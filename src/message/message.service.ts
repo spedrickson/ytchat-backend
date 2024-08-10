@@ -1,7 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-// import * as util from 'util';
-// import * as mongoose from 'mongoose';
-import { Model, PipelineStage } from 'mongoose';
+import mongoose, { Model, PipelineStage } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { Author, AuthorSearch, Message } from './interfaces/message.interface';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -44,19 +42,28 @@ export class MessageService {
       .exec();
   }
 
+  // TODO: fix $gte/$lt breakin with mid-name search
+  // IMPORTANT!!!
   async getAuthorsByRegex(
     filter: string,
     limit: number,
     caseSensitive: boolean,
+    contains: boolean,
   ): Promise<Author[]> {
+    // mongoose.set('debug', true);
+    const nameFilter = {
+      $regex: new RegExp(filter, caseSensitive ? '' : 'i'),
+    };
+    if (!contains) {
+      nameFilter['$gte'] = filter;
+      // 122 is the character code for 'z', prevents $lt search from running with '{'
+      if (filter.charAt(0).toLowerCase().charCodeAt(0) < 122) {
+        nameFilter['$lt'] = String.fromCharCode(filter.charCodeAt(0) + 1);
+      }
+    }
     return await this.authorSearchModel
       .find({
-        name: {
-          // by $gte/$lt filtering on a string, mongoDB will only check a range of the index
-          $gte: filter.toLowerCase(),
-          $lt: String.fromCharCode(filter.charCodeAt(0) + 1),
-          $regex: new RegExp(filter, caseSensitive ? '' : 'i'),
-        },
+        name: nameFilter,
       })
       .collation({ locale: 'en', strength: 1 })
       .sort({
@@ -126,13 +133,18 @@ export class MessageService {
       .exec();
   }
 
-  async getAuthor(channelId: string): Promise<Message[]> {
+  async getAuthor(channelId: string): Promise<AuthorSearch> {
     // mongoose.set('debug', false);
-    return await this.messageModel
-      .find({ 'author.channelId': channelId })
-      .limit(1)
-      .sort({ timestamp: -1 })
-      .exec();
+    this.logger.debug(channelId);
+    // need to use find() instead of findById() because author collection uses YT channelId instead of an ObjectId
+    const result =  await this.authorSearchModel.findOne({_id: channelId});
+    this.logger.debug(result);
+    return result;
+    // return await this.messageModel
+    //   .find({ 'author.channelId': channelId })
+    //   .limit(1)
+    //   .sort({ timestamp: -1 })
+    //   .exec();
   }
 
   // Updates author cache with the latest authors
@@ -149,45 +161,67 @@ export class MessageService {
       },
       {
         $sort: {
-          timestamp: -1,
-        },
+          timestamp: -1
+        }
       },
       {
         $group: {
-          _id: '$author.channelId',
+          _id: "$author.channelId",
           author: {
-            $first: '$author',
+            $first: "$author"
           },
-          timestamp: {
-            $first: '$timestamp',
+          lastTimestamp: {
+            $first: "$timestamp"
           },
-        },
+          firstTimestamp: {
+            $last: "$timestamp"
+          },
+          messageCount: {
+            $sum: 1
+          }
+        }
       },
       {
         $addFields: {
-          'author.lastTimestamp': '$timestamp',
-        },
+          "author.lastTimestamp": "$lastTimestamp",
+          "author.firstTimestamp": "$firstTimestamp",
+          "author.messageCount": "$messageCount"
+        }
       },
       {
         $replaceRoot: {
           newRoot: {
             $mergeObjects: [
               {
-                _id: '$author.channelId',
+                _id: "$author.channelId"
               },
-              '$author',
-            ],
-          },
-        },
+              "$author"
+            ]
+          }
+        }
       },
       {
         $merge: {
-          into: 'authors',
-          on: '_id',
-          whenMatched: 'replace',
-          whenNotMatched: 'insert',
-        },
-      },
+          into: "authors",
+          on: "_id",
+          whenNotMatched: "insert",
+          whenMatched: [
+            {
+              $project: {
+                fixed: {
+                  $mergeObjects: [
+                    "$$new",
+                    {
+                      firstTimestamp: "$firstTimestamp",
+                      messageCount: {$add: ["$messageCount", "$$new.messageCount"]}
+                    }
+                  ]
+                }
+              }
+            },{ $replaceRoot: { newRoot: "$fixed" } }
+          ]
+        }
+      }
     ];
     this.messageModel.aggregate(aggregation, { allowDiskUse: true }).exec();
     this.logger.debug(
