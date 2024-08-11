@@ -43,3 +43,26 @@ export interface AuthorSearch extends Document {
   readonly lastTimestamp: number;
   readonly messageCount: number;
 }
+
+export interface Comment extends Document {
+  readonly channelId: string;
+  readonly videoId: string;
+  readonly kind: string;
+  readonly etag: string;
+  readonly id: string;
+  readonly textDisplay: string;
+  readonly textOriginal: string;
+  readonly authorDisplayName: string;
+  readonly authorProfileImageUrl: string;
+  readonly authorChannelUrl: string;
+  readonly authorChannelId: string;
+  readonly canRate: boolean;
+  readonly viewerRating: string;
+  readonly likeCount: number;
+  readonly publishedAt: Date;
+  readonly updatedAt: Date;
+  readonly canReply: boolean;
+  readonly totalReplyCount: number;
+  readonly isPublic: boolean;
+  readonly parentId: string;
+}

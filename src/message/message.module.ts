@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { MessageService } from './message.service';
 import { MessageController } from './message.controller';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AuthorSearchSchema, MessageSchema } from './schemas/message.schema';
+import { AuthorSearchSchema, MessageSchema, CommentSchema } from './schemas/message.schema';
 import { ScheduleModule } from '@nestjs/schedule';
 import { UserModule } from '../user/user.module';
 import { ModCommentModule } from '../modcomment/modcomment.module';
@@ -24,6 +24,7 @@ const mongodb_string = process.env.YTCHAT_BACKEND_MONGOSTRING
     MongooseModule.forFeature([
       { name: 'Message', schema: MessageSchema },
       { name: 'AuthorSearch', schema: AuthorSearchSchema },
+      { name: 'Comment', schema: CommentSchema },
     ]),
     ScheduleModule.forRoot(),
     UserModule,

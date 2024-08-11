@@ -1,21 +1,30 @@
 import { Injectable, Logger } from '@nestjs/common';
 import mongoose, { Model, PipelineStage } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
-import { Author, AuthorSearch, Message } from './interfaces/message.interface';
+import {
+  Author,
+  AuthorSearch,
+  Message,
+  Comment,
+} from './interfaces/message.interface';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class MessageService {
   private lastCacheUpdate: number = null;
+  private lastCommentCacheUpdate: Date = null;
   private readonly logger = new Logger(MessageService.name);
 
   constructor(
     @InjectModel('Message') private readonly messageModel: Model<Message>,
     @InjectModel('AuthorSearch')
     private readonly authorSearchModel: Model<AuthorSearch>,
-  ) {}
+    @InjectModel('Comment') private readonly commentSearchModel: Model<Comment>,
+  ) {
+    // this.refreshCommentAuthorCache().then(() => this.refreshAuthorCache());
+  }
 
-  async getFilteredMessages(userFilters, sort): Promise<Message[]> {
+  async getFilteredMessages(userFilters: object, sort: []): Promise<Message[]> {
     // mongoose.set('debug', true);
     return await this.messageModel
       .find(userFilters)
@@ -36,7 +45,7 @@ export class MessageService {
       )
       .sort({
         score: { $meta: 'textScore' },
-        lastTimestamp: -1,
+        lastMessageTimestamp: -1,
       })
       .limit(limit)
       .exec();
@@ -67,7 +76,7 @@ export class MessageService {
       })
       .collation({ locale: 'en', strength: 1 })
       .sort({
-        lastTimestamp: -1,
+        lastMessageTimestamp: -1,
       })
       .limit(limit)
       .exec();
@@ -138,20 +147,14 @@ export class MessageService {
     this.logger.debug(channelId);
     // need to use find() instead of findById() because author collection uses YT channelId instead of an ObjectId
     const result = await this.authorSearchModel.findOne({ _id: channelId });
-    this.logger.debug(result);
     return result;
-    // return await this.messageModel
-    //   .find({ 'author.channelId': channelId })
-    //   .limit(1)
-    //   .sort({ timestamp: -1 })
-    //   .exec();
   }
 
   // Updates author cache with the latest authors
   // uses the last author timestamp to only scan recent messages
   @Cron(CronExpression.EVERY_30_SECONDS)
   async refreshAuthorCache() {
-    this.lastCacheUpdate = await this.getLastAuthorTimestamp();
+    this.lastCacheUpdate = await this.getLastAuthorMessageTimestamp();
     const startTime = performance.now();
     const aggregation: Array<PipelineStage> = [
       {
@@ -170,10 +173,10 @@ export class MessageService {
           author: {
             $first: '$author',
           },
-          lastTimestamp: {
+          lastMessageTimestamp: {
             $first: '$timestamp',
           },
-          firstTimestamp: {
+          firstMessageTimestamp: {
             $last: '$timestamp',
           },
           messageCount: {
@@ -183,8 +186,8 @@ export class MessageService {
       },
       {
         $addFields: {
-          'author.lastTimestamp': '$lastTimestamp',
-          'author.firstTimestamp': '$firstTimestamp',
+          'author.lastMessageTimestamp': '$lastMessageTimestamp',
+          'author.firstMessageTimestamp': '$firstMessageTimestamp',
           'author.messageCount': '$messageCount',
         },
       },
@@ -207,30 +210,120 @@ export class MessageService {
           whenNotMatched: 'insert',
           whenMatched: [
             {
-              $project: {
-                fixed: {
-                  $mergeObjects: [
-                    '$$new',
-                    {
-                      firstTimestamp: '$firstTimestamp',
-                      messageCount: {
-                        $add: ['$messageCount', '$$new.messageCount'],
-                      },
-                    },
-                  ],
-                },
-              },
-            },
-            { $replaceRoot: { newRoot: '$fixed' } },
+              $addFields: {
+                badgeUrl: "$$new.badgeUrl",
+                type: "$$new.type",
+                isVerified: '$$new.isVerified',
+                isChatOwner: '$$new.isChatOwner',
+                isChatSponsor: '$$new.isChatSponsor',
+                isChatModerator: '$$new.isChatModerator',
+                channelId: '$$new.channelId',
+                channelUrl: '$$new.channelUrl',
+                name: '$$new.name',
+                imageUrl: '$$new.imageUrl',
+                lastMessageTimestamp: '$$new.lastMessageTimestamp',
+                firstMessageTimestamp: {$ifNull: ['$firstMessageTimestamp', '$$new.firstMessageTimestamp']},
+                messageCount: {$add: ['$$new.messageCount', {$ifNull: ['$messageCount', 0]}]}
+              }
+            }
           ],
         },
       },
     ];
-    this.messageModel.aggregate(aggregation, { allowDiskUse: true }).exec();
+    if (this.lastCacheUpdate === -1) {
+      aggregation.shift(); // remove the match step if there aren't any timestamps in the author database
+    }
+    // this.logger.debug(
+    //   'final message aggregation:',
+    //   JSON.stringify(aggregation),
+    // );
+    this.messageModel
+      .aggregate(aggregation, { allowDiskUse: true })
+      .exec();
     this.logger.debug(
-      `[${Math.round(performance.now() - startTime)}ms] refreshed author db > ${this.lastCacheUpdate}`,
+      `[${Math.round(performance.now() - startTime)}ms] refreshed author message db > ${this.lastCacheUpdate}`,
     );
   }
+
+  // Updates author cache with the latest authors
+  // uses the last author timestamp to only scan recent messages
+  @Cron(CronExpression.EVERY_MINUTE)
+  async refreshCommentAuthorCache() {
+    this.lastCommentCacheUpdate = await this.getLastAuthorCommentTimestamp();
+    const startTime = performance.now();
+    const aggregation: Array<PipelineStage> = [
+      {
+        $match: {
+          publishedAt: { $gt: this.lastCommentCacheUpdate },
+        },
+      },
+      {
+        $sort: {
+          publishedAt: -1,
+        },
+      },
+      {
+        $group: {
+          _id: '$authorChannelId',
+          name: {
+            $first: '$authorDisplayName',
+          },
+          channelUrl: {
+            $first: '$authorChannelUrl',
+          },
+          channelId: {
+            $first: '$authorChannelId',
+          },
+          imageUrl: {
+            $first: '$authorProfileImageUrl',
+          },
+          lastCommentTimestamp: {
+            $first: '$publishedAt',
+          },
+          firstCommentTimestamp: {
+            $last: '$publishedAt',
+          },
+          commentCount: {
+            $sum: 1,
+          },
+        },
+      },
+      {
+        $merge: {
+          into: 'authors',
+          on: '_id',
+          whenNotMatched: 'insert',
+          whenMatched: [
+            {
+              $addFields: {
+                name: '$$new.name',
+                channelUrl: '$$new.channelUrl',
+                channelId: '$$new.channelId',
+                imageUrl: '$$new.imageUrl',
+                lastCommentTimestamp: '$$new.lastCommentTimestamp',
+                firstCommentTimestamp: {$ifNull: ['$firstCommentTimestamp', '$$new.firstCommentTimestamp']},
+                commentCount: {$add: ['$$new.commentCount', {$ifNull: ['$commentCount', 0]}]},
+              }
+            }
+          ],
+        },
+      },
+    ];
+    if (this.lastCommentCacheUpdate === null) {
+      aggregation.shift(); // remove the match step if there aren't any timestamps in the author database
+    }
+    // this.logger.debug(
+    //   'final comment aggregations:',
+    //   JSON.stringify(aggregation),
+    // );
+    this.commentSearchModel
+      .aggregate(aggregation, { allowDiskUse: true })
+      .exec();
+    this.logger.debug(
+      `[${Math.round(performance.now() - startTime)}ms] refreshed author comment db > ${this.lastCommentCacheUpdate}`,
+    );
+  }
+
   // finds the last message timestamp
   async getLastMessageTimestamp() {
     const startTime = performance.now();
@@ -251,21 +344,42 @@ export class MessageService {
   }
 
   // finds the last author timestamp, to ensure cache refreshes always pull the right data
-  async getLastAuthorTimestamp() {
+  async getLastAuthorCommentTimestamp() {
     const startTime = performance.now();
     const result = await this.authorSearchModel
       .findOne()
-      .sort({ lastTimestamp: -1 })
+      .sort({ lastCommentTimestamp: -1 })
       .limit(1)
-      .select('lastTimestamp')
+      .select('lastCommentTimestamp')
       .exec();
-    this.logger.debug(
-      `[${Math.round(performance.now() - startTime)}ms] fetched last author timestamp: ${result['lastTimestamp']}`,
-    );
-    if (result !== null) {
-      return result['lastTimestamp'];
+    if (result !== null && result['lastCommentTimestamp'] !== undefined) {
+      this.logger.debug(
+        `[${Math.round(performance.now() - startTime)}ms] fetched last comment timestamp: ${result['lastCommentTimestamp']}`,
+      );
+      return result['lastCommentTimestamp'];
     } else {
-      return 0;
+      // return new Date(2024, 1, 1)
+      return null;
+    }
+  }
+
+  // finds the last author timestamp, to ensure cache refreshes always pull the right data
+  async getLastAuthorMessageTimestamp() {
+    const startTime = performance.now();
+    const result = await this.authorSearchModel
+      .findOne()
+      .sort({ lastMessageTimestamp: -1 })
+      .limit(1)
+      .select('lastMessageTimestamp')
+      .exec();
+    if (result !== null && result['lastMessageTimestamp'] !== undefined) {
+      this.logger.debug(
+        `[${Math.round(performance.now() - startTime)}ms] fetched last message timestamp: ${result['lastMessageTimestamp']}`,
+      );
+      return result['lastMessageTimestamp'];
+    } else {
+      // return 1723249790000; // TODO: REMOVE!!!
+      return null;
     }
   }
 
@@ -274,7 +388,7 @@ export class MessageService {
   // so we only need to track IDs of new messages
   @Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
   async trimMessageIdIndex() {
-    const lastTimestamp = await this.getLastMessageTimestamp();
+    const lastMessageTimestamp = await this.getLastMessageTimestamp();
     let start = performance.now();
     this.logger.warn('starting trim');
     await this.messageModel.collection
@@ -290,7 +404,7 @@ export class MessageService {
         unique: true,
         partialFilterExpression: {
           timestamp: {
-            $gte: lastTimestamp,
+            $gte: lastMessageTimestamp,
           },
         },
       },
@@ -349,7 +463,7 @@ export class MessageService {
           },
           {
             $addFields: {
-              'author.lastTimestamp': '$timestamp',
+              'author.lastMessageTimestamp': '$timestamp',
             },
           },
           {

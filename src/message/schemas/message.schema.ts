@@ -45,14 +45,44 @@ export const AuthorSearchSchema = new mongoose.Schema(
     channelUrl: String,
     name: String,
     imageUrl: String,
-    lastTimestamp: Number,
+    lastMessageTimestamp: Number,
+    firstMessageTimestamp: Number,
+    lastCommentTimestamp: Date,
+    firstCommentTimestamp: Date,
   },
   { collection: 'authors' },
 );
-
 AuthorSearchSchema.index({ name: 'text' });
 AuthorSearchSchema.index(
   { name: 1 },
   { collation: { locale: 'en', strength: 1 } },
 );
-AuthorSearchSchema.index({ lastTimestamp: -1 });
+AuthorSearchSchema.index({ lastMessageTimestamp: -1 });
+AuthorSearchSchema.index({ lastCommentTimestamp: -1 });
+
+export const CommentSchema = new mongoose.Schema({
+  channelId: String,
+  videoId: String,
+  kind: String,
+  etag: String,
+  id: String,
+  textDisplay: String,
+  textOriginal: String,
+  authorDisplayName: String,
+  authorProfileImageUrl: String,
+  authorChannelUrl: String,
+  authorChannelId: String,
+  canRate: Boolean,
+  viewerRating: String,
+  likeCount: Number,
+  publishedAt: Date,
+  updatedAt: Date,
+  canReply: Boolean,
+  totalReplyCount: Number,
+  isPublic: Boolean,
+  parentId: String,
+},{ collection: 'comments' },)
+
+CommentSchema.index({ authorChannelId: -1})
+CommentSchema.index({ parentId: -1})
+CommentSchema.index({ publishedAt: 1 })
