@@ -25,13 +25,28 @@ export class MessageService {
     // this.refreshAuthorCache().then(() => this.refreshCommentAuthorCache());
   }
 
-  async getFilteredMessages(userFilters: object, sort: []): Promise<Message[]> {
-    mongoose.set('debug', true);
-    return await this.messageModel
-      .find(userFilters)
-      .limit(100)
-      .sort(sort)
-      .exec();
+  async getFilteredMessages(userFilters: object, sort: [], limit: Number, skip: Number): Promise<Message[]> {
+    const aggregation = [];
+    aggregation.push({ $match: userFilters });
+    aggregation.push({ $sort: sort });
+    aggregation.push({ $limit: limit});
+    aggregation.push({ $skip: skip});
+    this.logger.debug('final pipeline', JSON.stringify(aggregation));
+    const options = {
+      allowDiskUse: true,
+    };
+    // heuristic based on author message count, if in DB
+    // high count means timestamp based search is faster, low count means channelId is faster
+    if (userFilters['author.channelId']) {
+      const author = await this.getAuthor(userFilters['author.channelId'])
+      if (author?.['messageCount'] > 10000) {
+        options['hint'] = {timestamp: 1}
+      } else {
+        options['hint'] = {'author.channelId': 1}
+      }
+    }
+    const result = await this.messageModel.aggregate(aggregation, options);
+    return result
   }
 
   async getComments(

@@ -42,9 +42,17 @@ export class MessageController {
   @Post('messages')
   async getFilteredMessages(@Res() res, @Body() body) {
     // this.logger.log(body);
+    const limit = body['limit'] ?? 100
+    if (limit > 1000 || limit < 1)
+      throw new BadRequestException(`limit must be between 1 and 1000. was: ${limit}`)
+    const skip = body['skip'] ?? 0
+    if (skip < 0)
+      throw new BadRequestException(`skip must be greater than or equal to 0. was: ${skip}`)
     const messages = await this.messageService.getFilteredMessages(
       body['filters'],
       body['sort'],
+      limit,
+      skip,
     );
     return res.status(HttpStatus.OK).json(messages);
   }

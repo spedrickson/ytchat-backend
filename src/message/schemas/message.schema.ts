@@ -28,7 +28,7 @@ export const MessageSchema = new mongoose.Schema(
 );
 
 MessageSchema.index({ timestamp: 1 });
-MessageSchema.index({ 'author.channelId': 1 });
+MessageSchema.index({ 'author.channelId': 1 }, {name: "authorID"});
 MessageSchema.index({ id: 1 }, { unique: true });
 
 // different than message author schema, extra fields related to searching
