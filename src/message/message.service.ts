@@ -53,11 +53,18 @@ export class MessageService {
       aggregation.push({ $skip: skip });
     }
     if (Object.keys(projection).length > 0) {
-      aggregation.push({$project: projection});
+      aggregation.push({ $project: projection });
     }
     aggregation.push({ $limit: limit });
     if (includeParent) {
-      aggregation.push({$lookup: {from: 'comments', localField: 'parentId', foreignField: 'id', as: 'parent'}})
+      aggregation.push({
+        $lookup: {
+          from: 'comments',
+          localField: 'parentId',
+          foreignField: 'id',
+          as: 'parent',
+        },
+      });
     }
     this.logger.debug('final comment aggregation', aggregation);
     return await this.commentSearchModel.aggregate(aggregation, {
@@ -178,7 +185,7 @@ export class MessageService {
     // mongoose.set('debug', false);
     this.logger.debug(channelId);
     // need to use find() instead of findById() because author collection uses YT channelId instead of an ObjectId
-    const result = await this.authorSearchModel.findById(channelId);
+    const result = await this.authorSearchModel.findById(channelId).lean();
     return result;
   }
 
