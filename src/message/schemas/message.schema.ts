@@ -81,6 +81,7 @@ export const CommentSchema = new mongoose.Schema({
   totalReplyCount: Number,
   isPublic: Boolean,
   parentId: String,
+  parent: Array,
 },{ collection: 'comments' },)
 
 CommentSchema.index({ authorChannelId: -1})

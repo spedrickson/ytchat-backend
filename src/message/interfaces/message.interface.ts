@@ -30,6 +30,7 @@ export interface User extends Document {
 }
 
 export interface AuthorSearch extends Document {
+  readonly _id: string;
   readonly badgeUrl: string;
   readonly type: string;
   readonly isVerified: boolean;
@@ -40,7 +41,10 @@ export interface AuthorSearch extends Document {
   readonly channelUrl: string;
   readonly name: string;
   readonly imageUrl: string;
-  readonly lastTimestamp: number;
+  readonly lastMessageTimestamp: number;
+  readonly firstMessageTimestamp: number;
+  readonly lastCommentTimestamp: Date;
+  readonly firstCommentTimestamp: Date;
   readonly messageCount: number;
 }
 
@@ -65,4 +69,5 @@ export interface Comment extends Document {
   readonly totalReplyCount: number;
   readonly isPublic: boolean;
   readonly parentId: string;
+  readonly parent: Array<Comment>;
 }

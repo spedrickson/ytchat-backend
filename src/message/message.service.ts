@@ -21,16 +21,48 @@ export class MessageService {
     private readonly authorSearchModel: Model<AuthorSearch>,
     @InjectModel('Comment') private readonly commentSearchModel: Model<Comment>,
   ) {
-    // this.refreshCommentAuthorCache().then(() => this.refreshAuthorCache());
+    // uncomment if author cache is completely empty
+    // this.refreshAuthorCache().then(() => this.refreshCommentAuthorCache());
   }
 
   async getFilteredMessages(userFilters: object, sort: []): Promise<Message[]> {
-    // mongoose.set('debug', true);
+    mongoose.set('debug', true);
     return await this.messageModel
       .find(userFilters)
       .limit(100)
       .sort(sort)
       .exec();
+  }
+
+  async getComments(
+    commentFilters: object,
+    sort: object,
+    skip: number,
+    limit: number,
+    projection: object,
+    includeParent: boolean,
+  ): Promise<Comment[]> {
+    const aggregation = [];
+    if (Object.keys(commentFilters).length > 0) {
+      aggregation.push({ $match: commentFilters });
+    }
+    if (Object.keys(sort).length > 0) {
+      aggregation.push({ $sort: sort });
+    }
+    if (skip > 0) {
+      aggregation.push({ $skip: skip });
+    }
+    if (Object.keys(projection).length > 0) {
+      aggregation.push({$project: projection});
+    }
+    aggregation.push({ $limit: limit });
+    if (includeParent) {
+      aggregation.push({$lookup: {from: 'comments', localField: 'parentId', foreignField: 'id', as: 'parent'}})
+    }
+    this.logger.debug('final comment aggregation', aggregation);
+    return await this.commentSearchModel.aggregate(aggregation, {
+      allowDiskUse: true,
+    });
   }
 
   async getAuthorsByText(
@@ -51,7 +83,7 @@ export class MessageService {
       .exec();
   }
 
-  // TODO: fix $gte/$lt breakin with mid-name search
+  // TODO: fix $gte/$lt breaking with mid-name search
   // IMPORTANT!!!
   async getAuthorsByRegex(
     filter: string,
@@ -146,7 +178,7 @@ export class MessageService {
     // mongoose.set('debug', false);
     this.logger.debug(channelId);
     // need to use find() instead of findById() because author collection uses YT channelId instead of an ObjectId
-    const result = await this.authorSearchModel.findOne({ _id: channelId });
+    const result = await this.authorSearchModel.findById(channelId);
     return result;
   }
 
@@ -211,8 +243,8 @@ export class MessageService {
           whenMatched: [
             {
               $addFields: {
-                badgeUrl: "$$new.badgeUrl",
-                type: "$$new.type",
+                badgeUrl: '$$new.badgeUrl',
+                type: '$$new.type',
                 isVerified: '$$new.isVerified',
                 isChatOwner: '$$new.isChatOwner',
                 isChatSponsor: '$$new.isChatSponsor',
@@ -222,22 +254,32 @@ export class MessageService {
                 name: '$$new.name',
                 imageUrl: '$$new.imageUrl',
                 lastMessageTimestamp: '$$new.lastMessageTimestamp',
-                firstMessageTimestamp: {$ifNull: ['$firstMessageTimestamp', '$$new.firstMessageTimestamp']},
-                messageCount: {$add: ['$$new.messageCount', {$ifNull: ['$messageCount', 0]}]}
-              }
-            }
+                firstMessageTimestamp: {
+                  $ifNull: [
+                    '$firstMessageTimestamp',
+                    '$$new.firstMessageTimestamp',
+                  ],
+                },
+                messageCount: {
+                  $add: [
+                    '$$new.messageCount',
+                    { $ifNull: ['$messageCount', 0] },
+                  ],
+                },
+              },
+            },
           ],
         },
       },
     ];
-    if (this.lastCacheUpdate === -1) {
+    if (this.lastCacheUpdate === null) {
       aggregation.shift(); // remove the match step if there aren't any timestamps in the author database
     }
     // this.logger.debug(
     //   'final message aggregation:',
     //   JSON.stringify(aggregation),
     // );
-    this.messageModel
+    await this.messageModel
       .aggregate(aggregation, { allowDiskUse: true })
       .exec();
     this.logger.debug(
@@ -301,10 +343,20 @@ export class MessageService {
                 channelId: '$$new.channelId',
                 imageUrl: '$$new.imageUrl',
                 lastCommentTimestamp: '$$new.lastCommentTimestamp',
-                firstCommentTimestamp: {$ifNull: ['$firstCommentTimestamp', '$$new.firstCommentTimestamp']},
-                commentCount: {$add: ['$$new.commentCount', {$ifNull: ['$commentCount', 0]}]},
-              }
-            }
+                firstCommentTimestamp: {
+                  $ifNull: [
+                    '$firstCommentTimestamp',
+                    '$$new.firstCommentTimestamp',
+                  ],
+                },
+                commentCount: {
+                  $add: [
+                    '$$new.commentCount',
+                    { $ifNull: ['$commentCount', 0] },
+                  ],
+                },
+              },
+            },
           ],
         },
       },
@@ -316,7 +368,7 @@ export class MessageService {
     //   'final comment aggregations:',
     //   JSON.stringify(aggregation),
     // );
-    this.commentSearchModel
+    await this.commentSearchModel
       .aggregate(aggregation, { allowDiskUse: true })
       .exec();
     this.logger.debug(
@@ -358,7 +410,6 @@ export class MessageService {
       );
       return result['lastCommentTimestamp'];
     } else {
-      // return new Date(2024, 1, 1)
       return null;
     }
   }
@@ -378,7 +429,6 @@ export class MessageService {
       );
       return result['lastMessageTimestamp'];
     } else {
-      // return 1723249790000; // TODO: REMOVE!!!
       return null;
     }
   }

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -201,6 +202,62 @@ export class MessageController {
       }
     });
     return res.status(HttpStatus.OK).json(counts);
+  }
+
+  @Permission('view')
+  @Post('comments')
+  /**
+   * Endpoint for getting comments with arbitrary filters and sorting
+   * @param res
+   * @param payload Body with any of the following fields:
+   *   * filters - MongoDB query object to match comments
+   *   * sort - MongoDB sort object to order comments
+   *   * skip - integer above zero, number of comments to skip after filtering and sorting
+   *   * limit - integer above zero, number of comments to return (max 1000)
+   *   * publishedAfter - number representing the JS Date after which comments should be published (added to filters)
+   *   * publishedBefore - number representing the JS Date before which comments should be published (added to filters)
+   *   * fields - string-array of fields names the endpoint should return (parent and parentId is always returned if `includeParent` is set)
+   *   * includeParent - if a parentId is set, will attempt to include parent comment as field `parent`
+   * @returns array of comments matching filters/sorts/limits/etc.
+   */
+  async getComments(@Res() res, @Body() payload: object) {
+    this.logger.debug('filter', payload);
+    const filters = payload['filters'] ?? {};
+    const sort = payload['sort'] ?? {};
+    const skip = payload['skip'];
+    const limit = payload['limit'];
+    const publishedAfter = payload['publishedAfter'];
+    const publishedBefore = payload['publishedBefore'];
+
+    if (publishedAfter || publishedBefore) filters.publishedAt = {};
+    if (publishedAfter) filters.publishedAt.$gte = new Date(publishedAfter);
+    if (publishedBefore) filters.publishedAt.$lte = new Date(publishedBefore);
+    const fields = payload['fields'] ?? [];
+    const includeParent = payload['includeParent'] ?? false;
+    if (skip < 0) {
+      throw new BadRequestException(
+        "'skip' param must be greater than 0 or omitted",
+      );
+    }
+    if (limit < 1 || limit > 1000) {
+      throw new BadRequestException(
+        "'limit' param must be between 1 and 1000 (inclusive)",
+      );
+    }
+
+    const projection = fields.reduce((k, v) => ({ ...k, [v]: 1 }), {});
+    if (includeParent) {
+      projection.parentId = 1;
+    }
+    const results = await this.messageService.getComments(
+      filters,
+      sort,
+      skip,
+      limit,
+      projection,
+      includeParent,
+    );
+    return res.status(HttpStatus.OK).json(results);
   }
 
   // potential unban interfaces:
