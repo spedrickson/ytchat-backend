@@ -45,6 +45,8 @@ export interface AuthorSearch extends Document {
   readonly firstMessageTimestamp: number;
   readonly lastCommentTimestamp: Date;
   readonly firstCommentTimestamp: Date;
+  readonly lastModCommentTimestamp: Date;
+  readonly firstModCommentTimestamp: Date;
   readonly messageCount: number;
 }
 
