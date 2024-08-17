@@ -92,3 +92,5 @@ CommentSchema.index({ authorChannelId: -1 });
 CommentSchema.index({ parentId: -1 });
 CommentSchema.index({ publishedAt: 1 });
 CommentSchema.index({ videoId: -1 });
+CommentSchema.index({ likeCount: -1 }, {partialFilterExpression: {likeCount: {$gt: 0}}})
+CommentSchema.index({ totalReplyCount: -1 }, {partialFilterExpression: {totalReplyCount: {$gt: 0}}})
