@@ -160,43 +160,7 @@ export class MessageService {
       .exec();
   }
 
-  async getNewerMessages(
-    messageId: string,
-    channelId: string,
-    limit: number,
-  ): Promise<Message[]> {
-    const filters = {
-      _id: { $gt: messageId },
-    };
-    // mongoose.set('debug', false);
-    if (channelId) filters['author.channelId'] = channelId;
-    return await this.messageModel.find(filters).limit(limit).exec();
-  }
-
-  async getMessageCount(channelId: string) {
-    // mongoose.set('debug', false);
-    return await this.messageModel
-      .countDocuments({ 'author.channelId': channelId })
-      .exec();
-  }
-
-  async getOlderMessages(
-    messageId: string,
-    channelId: string,
-    limit: number,
-  ): Promise<Message[]> {
-    // mongoose.set('debug', false);
-    const filters = {};
-    if (messageId) filters['_id'] = { $lt: messageId };
-    if (channelId) filters['author.channelId'] = channelId;
-    return await this.messageModel
-      .find(filters)
-      .limit(limit)
-      .sort({ timestamp: -1 })
-      .exec();
-  }
-
-  async getAuthor(channelId: string): Promise<AuthorSearch> {
+  async getAuthor(channelId: string): Promise<any> {
     // mongoose.set('debug', false);
     this.logger.debug(channelId);
     // need to use find() instead of findById() because author collection uses YT channelId instead of an ObjectId
@@ -484,35 +448,6 @@ export class MessageService {
     this.logger.warn(
       `[${performance.now() - start}ms] finished trim: ${result}`,
     );
-  }
-
-  async getSponsorsByHour() {
-    // mongoose.set('debug', false);
-    return this.messageModel
-      .aggregate(
-        [
-          {
-            $match: {
-              type: 'newSponsor',
-            },
-          },
-          {
-            $project: {
-              datetime: { $substr: ['$datetime', 0, 13] },
-            },
-          },
-          {
-            $group: {
-              _id: '$datetime',
-              count: {
-                $sum: 1,
-              },
-            },
-          },
-        ],
-        { allowDiskUse: true },
-      )
-      .exec();
   }
 
   // completely refills the author collection from the message db
