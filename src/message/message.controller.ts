@@ -101,46 +101,6 @@ export class MessageController {
     return res.status(HttpStatus.OK).json(authors);
   }
 
-  @Permission('view')
-  @Get('messages/newer')
-  async getNewerMessages(
-    @Res() res,
-    @Query('messageID') messageID?: string,
-    @Query('from') from?: string,
-    @Query('channelID') channelID?: string,
-    @Query('user') user?: string,
-    @Query('limit') limit?: number,
-  ) {
-    // this.logger.log(`getting messages newer than: ${messageID}`);
-    const messages = await this.messageService.getNewerMessages(
-      messageID ?? from,
-      channelID ?? user,
-      limit ? limit : 100,
-    );
-    if (!messages) throw new NotFoundException('no messages newer than id');
-    return res.status(HttpStatus.OK).json(messages);
-  }
-
-  @Permission('view')
-  @Get('messages/older')
-  async getOlderMessages(
-    @Res() res,
-    @Query('messageID') messageID?: string,
-    @Query('from') from?: string,
-    @Query('channelID') channelID?: string,
-    @Query('user') user?: string,
-    @Query('limit') limit?: number,
-  ) {
-    // this.logger.log(`getting messages older than: ${messageID}`);
-    const messages = await this.messageService.getOlderMessages(
-      messageID ?? from,
-      channelID ?? user,
-      limit ? limit : 100,
-    );
-    if (!messages) throw new NotFoundException('no messages newer than id');
-    return res.status(HttpStatus.OK).json(messages);
-  }
-
   @Permission('comment')
   @Post('channel/:channelID/comments')
   async addModComment(
@@ -267,45 +227,4 @@ export class MessageController {
     );
     return res.status(HttpStatus.OK).json(results);
   }
-
-  // potential unban interfaces:
-  //
-  // @Permission('comment')
-  // @Post('bannedusers/upload')
-  // async setBannedUsers(@Res() res, @Req() req, @Body() body) {
-  //   this.logger.log(Object.keys(body));
-  //   return res.status(HttpStatus.OK).json('success');
-  // }
-
-  // @Permission('view')
-  // @Get('sponsors/byhour')
-  // async getSponsorsByHour(@Res() res) {
-  //   const result = await this.messageService.getSponsorsByHour();
-  //   this.logger.log(result);
-  //   return res.status(HttpStatus.OK).json(result);
-  // }
-
-  // @Permission('comment')
-  // @Post('bannedusers/comment/:channelID')
-  // async addUnbanRequest(
-  //   @Res() res,
-  //   @Req() req,
-  //   @Body() body,
-  //   @Param('channelID') channelID,
-  // ) {
-  //   this.logger.log('adding unban request');
-  //   this.logger.log(body);
-  //   const timestamp = body.timestamp ?? Date.now();
-  //   if (!body.message)
-  //     return res
-  //       .status(HttpStatus.BAD_REQUEST)
-  //       .json("request must specify 'message' param");
-  //   const result = this.bannedUserService.addUnbanRequest(
-  //     channelID,
-  //     body.message,
-  //     timestamp,
-  //   );
-  //   this.logger.log(result);
-  //   return res.status(HttpStatus.OK).json('unban comment added');
-  // }
 }
